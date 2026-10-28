@@ -1,0 +1,78 @@
+# Local infrastructure for the OMS learning project.
+# Nothing starts without a profile. Start only what the current step needs:
+#   docker compose --profile db up -d          # PostgreSQL only
+#   docker compose --profile cache up -d       # Redis only
+#   docker compose --profile auth up -d        # Keycloak (+ the PostgreSQL it needs)
+#   docker compose --profile foundation up -d  # everything step 1 needs
+# Stop:  docker compose --profile <name> down      (add -v to delete data - ask first)
+name: oms
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: oms-postgres
+    profiles: [db, auth, foundation]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5434:5432"          # host 5432 and 5433 are taken by other Postgres instances
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    mem_limit: 384m
+
+  redis:
+    image: redis:7-alpine
+    container_name: oms-redis
+    profiles: [cache, foundation]
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    mem_limit: 128m
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    container_name: oms-keycloak
+    profiles: [auth, foundation]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["start-dev"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/oms_keycloak
+      KC_DB_USERNAME: oms_keycloak
+      KC_DB_PASSWORD: oms_keycloak
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_PORT: "8080"
+      KC_HOSTNAME_STRICT: "false"
+    ports:
+      - "8180:8080"          # 8080 is reserved for api-gateway on the host
+      - "9000:9000"          # management: /health, /metrics
+    healthcheck:
+      # image has no curl; open a TCP connection to the management port and read the readiness endpoint
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"status\": \"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    mem_limit: 1g
+
+volumes:
+  postgres-data:
+  redis-data:

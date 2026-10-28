@@ -7,7 +7,7 @@
 -->
 <configuration>
   <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
-  <conversionRule conversionWord="maskedMsg" converterClass="com.retail.oms.common.web.logging.MaskingMessageConverter"/>
+  <conversionRule conversionWord="maskedMsg" class="com.retail.oms.common.web.logging.MaskingMessageConverter"/>
   <springProperty scope="context" name="service" source="spring.application.name" defaultValue="unknown"/>
 
   <springProfile name="qa | prod | k8s">

@@ -1,0 +1,30 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: discovery-service
+
+eureka:
+  client:
+    # Standalone server (architecture 6.2): does not register with itself or fetch a registry.
+    register-with-eureka: false
+    fetch-registry: false
+  server:
+    # Heartbeat is 10s and eviction 30s (set on the clients in config-repo/application.yml).
+    # Self-preservation would keep dead instances listed when many heartbeats are missed, which is
+    # confusing on a laptop where services are started and stopped all the time. Off for local use.
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 5000
+
+management:
+  server:
+    port: 18761
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true

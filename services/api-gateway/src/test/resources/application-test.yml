@@ -1,0 +1,20 @@
+# Hermetic test setup: no Config Server, no Eureka, no Keycloak, no Redis needed.
+spring:
+  config:
+    import: ""
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+eureka:
+  client:
+    enabled: false
+management:
+  server:
+    port: 0
+oms:
+  security:
+    issuer: http://keycloak.test/realms/oms
+    jwk-set-uri: http://127.0.0.1:1/unused    # never called: tests inject authentication or use hand-built JWTs
+    audience: oms-api

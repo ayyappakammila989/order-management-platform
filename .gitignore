@@ -1,0 +1,21 @@
+# OS / IDE
+.DS_Store
+.idea/
+*.iml
+.vscode/
+
+# Build
+target/
+node_modules/
+dist/
+.angular/
+
+# Local secrets / env
+.env
+*.local
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars

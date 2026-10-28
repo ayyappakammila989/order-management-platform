@@ -35,6 +35,7 @@
     <module>libs/oms-common-web</module>
     <module>services/config-server</module>
     <module>services/discovery-service</module>
+    <module>services/api-gateway</module>
   </modules>
 
   <dependencyManagement>

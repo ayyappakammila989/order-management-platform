@@ -1,0 +1,108 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  config:
+    # Shared and per-environment values (Eureka URL, Keycloak URLs, Redis) come from the Config Server.
+    # "optional:" lets the gateway start without it, using the local defaults below.
+    import: optional:configserver:http://localhost:8888
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # Routes are part of the gateway's structure, so they live (and are tested) with the code.
+          routes:
+            - id: mobile
+              uri: lb://mobile-bff
+              predicates: [Path=/api/v1/mobile/**]
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@userKeyResolver}"
+                    redis-rate-limiter.replenishRate: 50
+                    redis-rate-limiter.burstCapacity: 100
+                - name: CircuitBreaker
+                  args:
+                    name: mobile
+                    fallbackUri: forward:/fallback/mobile
+            - id: web
+              uri: lb://web-bff
+              predicates: [Path=/api/v1/web/**]
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@userKeyResolver}"
+                    redis-rate-limiter.replenishRate: 50
+                    redis-rate-limiter.burstCapacity: 100
+                - name: CircuitBreaker
+                  args:
+                    name: web
+                    fallbackUri: forward:/fallback/web
+            - id: admin                       # role check is in SecurityConfig; no rate limit for agents
+              uri: lb://admin-bff
+              predicates: [Path=/api/v1/admin/**]
+            - id: returns
+              uri: lb://returns-service
+              predicates: [Path=/api/v1/returns/**]
+            - id: stores                      # public, cacheable
+              uri: lb://store-service
+              predicates: [Path=/api/v1/stores/**]
+              filters:
+                - name: AddResponseHeader
+                  args:
+                    name: Cache-Control
+                    value: "public, max-age=300"
+            - id: chat                        # 10 requests/minute per agent = 1 token/s, 6 tokens per request, burst 10
+              uri: lb://chatbot-service
+              predicates: [Path=/api/v1/chat/**]
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@userKeyResolver}"
+                    redis-rate-limiter.replenishRate: 1
+                    redis-rate-limiter.burstCapacity: 60
+                    redis-rate-limiter.requestedTokens: 6
+            - id: webhooks-pay                # no JWT; signature + IP allow-list are checked in the service
+              uri: lb://payment-gateway-adapter
+              predicates: ["Path=/webhooks/stripe,/webhooks/paypal"]
+            - id: webhooks-carrier            # no JWT; HMAC is checked in the service
+              uri: lb://integration-logistics
+              predicates: [Path=/webhooks/carriers/**]
+
+oms:
+  security:
+    issuer: http://localhost:8180/realms/oms
+    jwk-set-uri: http://localhost:8180/realms/oms/protocol/openid-connect/certs
+    audience: oms-api
+
+# Circuit breaker defaults from architecture 6.4: 50% failures over 20 calls, open 30 s, timeout 3 s
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 20
+        minimum-number-of-calls: 20      # Resilience4j default is 100; the design says 50% over 20 calls
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 3s
+
+management:
+  server:
+    port: 18080
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true

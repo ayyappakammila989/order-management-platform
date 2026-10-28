@@ -1,0 +1,40 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  profiles:
+    # native = read files from config-repo/ in this repo (no commit needed while experimenting).
+    # Use SPRING_PROFILES_ACTIVE=git to serve the committed files from GitHub instead.
+    active: native
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: file:${OMS_CONFIG_REPO:../../config-repo}
+
+management:
+  server:
+    port: 18888          # actuator is kept off the application port (architecture 11.5); +10000 locally
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: git
+  cloud:
+    config:
+      server:
+        git:
+          uri: https://github.com/ayyappakammila989/order-management-platform
+          search-paths: config-repo
+          default-label: develop

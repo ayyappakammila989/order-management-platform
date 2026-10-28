@@ -80,6 +80,8 @@ Service token: `-d "client_id=order-service&client_secret=dev-order-service-secr
 | api-gateway | 8080 | 18080 | http://localhost:8080 |
 
 Start order: containers (`--profile foundation`), then config-server, discovery-service, api-gateway.
+Check everything with `scripts/smoke-step1.sh` (22 checks; the rate-limit check needs ~60 s between runs).
+Config Server serving from GitHub instead of the local folder: `SPRING_PROFILES_ACTIVE=git` (serves the `develop` branch).
 Run each with `mvn -pl services/<name> spring-boot:run` or `java -jar services/<name>/target/<name>-0.1.0-SNAPSHOT.jar`
 (from the service's own folder for config-server, which finds `config-repo/` by relative path).
 

@@ -1,0 +1,570 @@
+{
+  "realm": "oms",
+  "displayName": "Order Management Platform",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": true,
+  "verifyEmail": false,
+  "bruteForceProtected": true,
+  "sslRequired": "external",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 43200,
+  "defaultSignatureAlgorithm": "RS256",
+  "roles": {
+    "realm": [
+      {
+        "name": "CUSTOMER",
+        "description": "Shoppers: own cart, own orders, own returns, own profile",
+        "composite": false
+      },
+      {
+        "name": "SUPPORT_AGENT",
+        "description": "Call-centre agents: search all orders, view details, cancel unshipped orders, create returns, refunds up to $200, use chatbot",
+        "composite": false
+      },
+      {
+        "name": "SUPPORT_SUPERVISOR",
+        "description": "Team leads: everything an agent can + refunds above $200 + approve flagged returns",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "SUPPORT_AGENT"
+          ]
+        }
+      },
+      {
+        "name": "OPS_ADMIN",
+        "description": "Operations team: integration screens, view and retry failed SAP / carrier messages, run SFTP jobs",
+        "composite": false
+      },
+      {
+        "name": "FINANCE",
+        "description": "Finance team: payment history, reconciliation reports, daily sales reports",
+        "composite": false
+      },
+      {
+        "name": "SERVICE",
+        "description": "Backend services: /internal/** APIs only",
+        "composite": false
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "customers",
+      "path": "/customers",
+      "realmRoles": [
+        "CUSTOMER"
+      ]
+    },
+    {
+      "name": "employees",
+      "path": "/employees"
+    }
+  ],
+  "defaultGroups": [
+    "/customers"
+  ],
+  "clients": [
+    {
+      "clientId": "mobile-app",
+      "name": "Mobile app (React Native)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "com.retail.oms.mobile://callback",
+        "http://localhost:8081/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+",
+        "client.session.idle.timeout": "1800",
+        "client.session.max.lifespan": "36000"
+      },
+      "protocolMappers": [
+        {
+          "name": "oms-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "oms-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "web-app",
+      "name": "Storefront web",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+",
+        "client.session.idle.timeout": "1800",
+        "client.session.max.lifespan": "36000"
+      },
+      "protocolMappers": [
+        {
+          "name": "oms-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "oms-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "admin-portal",
+      "name": "Angular admin portal",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "http://localhost:4200/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4200"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
+      "protocolMappers": [
+        {
+          "name": "oms-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "oms-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "oms-dev-cli",
+      "name": "DEV ONLY: password-grant client for curl and scripts",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+",
+        "client.session.idle.timeout": "1800",
+        "client.session.max.lifespan": "36000"
+      },
+      "protocolMappers": [
+        {
+          "name": "oms-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "oms-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "cart-service",
+      "name": "cart-service",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-cart-service-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "attributes": {},
+      "protocolMappers": [
+        {
+          "name": "oms-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "oms-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "order-service",
+      "name": "order-service",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-order-service-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "attributes": {},
+      "protocolMappers": [
+        {
+          "name": "oms-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "oms-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "pricing-service",
+      "name": "pricing-service",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-pricing-service-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "attributes": {},
+      "protocolMappers": [
+        {
+          "name": "oms-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "oms-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "order-orchestrator",
+      "name": "order-orchestrator",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-order-orchestrator-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "attributes": {},
+      "protocolMappers": [
+        {
+          "name": "oms-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "oms-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "inventory-service",
+      "name": "inventory-service",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-inventory-service-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "attributes": {},
+      "protocolMappers": [
+        {
+          "name": "oms-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "oms-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "payment-service",
+      "name": "payment-service",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-payment-service-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "attributes": {},
+      "protocolMappers": [
+        {
+          "name": "oms-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "oms-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "customer1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "customer1@example.com",
+      "firstName": "Casey",
+      "lastName": "Customer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "groups": [
+        "/customers"
+      ]
+    },
+    {
+      "username": "agent1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "agent1@example.com",
+      "firstName": "Alex",
+      "lastName": "Agent",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "SUPPORT_AGENT"
+      ],
+      "groups": [
+        "/employees"
+      ]
+    },
+    {
+      "username": "supervisor1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "supervisor1@example.com",
+      "firstName": "Sam",
+      "lastName": "Supervisor",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "SUPPORT_SUPERVISOR"
+      ],
+      "groups": [
+        "/employees"
+      ]
+    },
+    {
+      "username": "ops1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "ops1@example.com",
+      "firstName": "Olive",
+      "lastName": "Ops",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "OPS_ADMIN"
+      ],
+      "groups": [
+        "/employees"
+      ]
+    },
+    {
+      "username": "finance1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "finance1@example.com",
+      "firstName": "Finn",
+      "lastName": "Finance",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "FINANCE"
+      ],
+      "groups": [
+        "/employees"
+      ]
+    },
+    {
+      "username": "service-account-cart-service",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "service-account-cart-service@service.local",
+      "firstName": "cart-service",
+      "lastName": "service",
+      "serviceAccountClientId": "cart-service",
+      "realmRoles": [
+        "SERVICE"
+      ]
+    },
+    {
+      "username": "service-account-order-service",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "service-account-order-service@service.local",
+      "firstName": "order-service",
+      "lastName": "service",
+      "serviceAccountClientId": "order-service",
+      "realmRoles": [
+        "SERVICE"
+      ]
+    },
+    {
+      "username": "service-account-pricing-service",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "service-account-pricing-service@service.local",
+      "firstName": "pricing-service",
+      "lastName": "service",
+      "serviceAccountClientId": "pricing-service",
+      "realmRoles": [
+        "SERVICE"
+      ]
+    },
+    {
+      "username": "service-account-order-orchestrator",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "service-account-order-orchestrator@service.local",
+      "firstName": "order-orchestrator",
+      "lastName": "service",
+      "serviceAccountClientId": "order-orchestrator",
+      "realmRoles": [
+        "SERVICE"
+      ]
+    },
+    {
+      "username": "service-account-inventory-service",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "service-account-inventory-service@service.local",
+      "firstName": "inventory-service",
+      "lastName": "service",
+      "serviceAccountClientId": "inventory-service",
+      "realmRoles": [
+        "SERVICE"
+      ]
+    },
+    {
+      "username": "service-account-payment-service",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "service-account-payment-service@service.local",
+      "firstName": "payment-service",
+      "lastName": "service",
+      "serviceAccountClientId": "payment-service",
+      "realmRoles": [
+        "SERVICE"
+      ]
+    }
+  ]
+}

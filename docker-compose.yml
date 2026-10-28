@@ -50,7 +50,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["start-dev"]
+    command: ["start-dev", "--import-realm"]   # imports realms from /opt/keycloak/data/import only if they do not exist yet
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
@@ -64,6 +64,8 @@ services:
     ports:
       - "8180:8080"          # 8080 is reserved for api-gateway on the host
       - "9000:9000"          # management: /health, /metrics
+    volumes:
+      - ./infra/keycloak/oms-realm.json:/opt/keycloak/data/import/oms-realm.json:ro
     healthcheck:
       # image has no curl; open a TCP connection to the management port and read the readiness endpoint
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"status\": \"UP\"' <&3"]

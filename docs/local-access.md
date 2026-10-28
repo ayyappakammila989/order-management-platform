@@ -41,9 +41,45 @@ with "Show all databases" ticked.
 **Redis Insight** -> Add database -> host `localhost`, port `6379`, no username/password.
 CLI: `docker exec -it oms-redis redis-cli`.
 
-**Browser** -> http://localhost:8180 -> Administration Console -> `admin` / `admin`.
+**Browser** -> http://localhost:8180 -> Administration Console -> `admin` / `admin` (master realm).
+The application realm is `oms`: http://localhost:8180/admin/master/console/#/oms
 OIDC discovery for the master realm: http://localhost:8180/realms/master/.well-known/openid-configuration
 
 **MongoDB Compass**: no MongoDB container yet (added with the services that need it).
 
-Application services (run on the host with `mvn spring-boot:run`) are added to this file as they are built.
+## Keycloak realm `oms` (imported from `infra/keycloak/oms-realm.json`)
+
+Test users (password for all: `Passw0rd!`, local only):
+
+| User | Realm roles |
+|---|---|
+| `customer1` | CUSTOMER (via group `customers`) |
+| `agent1` | SUPPORT_AGENT |
+| `supervisor1` | SUPPORT_SUPERVISOR (composite: includes SUPPORT_AGENT) |
+| `ops1` | OPS_ADMIN |
+| `finance1` | FINANCE |
+
+Clients: `mobile-app`, `web-app`, `admin-portal` (public, PKCE S256, no password grant);
+`oms-dev-cli` (**dev only**, password grant, for curl); one confidential client per service
+(`cart-service`, `order-service`, `pricing-service`, `order-orchestrator`, `inventory-service`, `payment-service`)
+with secret `dev-<client>-secret` and the `SERVICE` role. Tokens carry `aud=oms-api`.
+
+Get a token from the command line:
+```bash
+curl -s -d "client_id=oms-dev-cli&grant_type=password&username=agent1&password=Passw0rd!" \
+  http://localhost:8180/realms/oms/protocol/openid-connect/token
+```
+Service token: `-d "client_id=order-service&client_secret=dev-order-service-secret&grant_type=client_credentials"`.
+
+## Application services (run on the host, not in Docker yet)
+
+| Service | App port | Management port (actuator) | URL |
+|---|---|---|---|
+| config-server | 8888 | 18888 | http://localhost:8888/{app}/{profile} |
+| discovery-service | 8761 | 18761 | http://localhost:8761 (Eureka dashboard) |
+| api-gateway | 8080 | 18080 | http://localhost:8080 |
+
+Start order: containers (`--profile foundation`), then config-server, discovery-service, api-gateway.
+Run each with `mvn -pl services/<name> spring-boot:run` or `java -jar services/<name>/target/<name>-0.1.0-SNAPSHOT.jar`
+(from the service's own folder for config-server, which finds `config-repo/` by relative path).
+

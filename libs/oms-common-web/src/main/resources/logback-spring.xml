@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Shared logging template (architecture section 14.3). A service can override it with its own logback-spring.xml.
+  - qa / prod / k8s profiles: one JSON object per line (logstash-logback-encoder), MDC fields included
+  - anything else (local development): readable single-line pattern with the correlation id
+  E-mail addresses and phone numbers are masked in both.
+-->
+<configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+  <conversionRule conversionWord="maskedMsg" converterClass="com.retail.oms.common.web.logging.MaskingMessageConverter"/>
+  <springProperty scope="context" name="service" source="spring.application.name" defaultValue="unknown"/>
+
+  <springProfile name="qa | prod | k8s">
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+        <includeMdcKeyName>correlationId</includeMdcKeyName>
+        <includeMdcKeyName>traceId</includeMdcKeyName>
+        <includeMdcKeyName>spanId</includeMdcKeyName>
+        <includeMdcKeyName>orderId</includeMdcKeyName>
+        <includeMdcKeyName>userId</includeMdcKeyName>
+        <customFields>{"service":"${service}"}</customFields>
+        <jsonGeneratorDecorator class="net.logstash.logback.mask.MaskingJsonGeneratorDecorator">
+          <valueMask>
+            <value>[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}</value>
+            <mask>***@***</mask>
+          </valueMask>
+          <valueMask>
+            <value>\+?\(?\d[\d\s().-]{8,}\d</value>
+            <mask>***</mask>
+          </valueMask>
+        </jsonGeneratorDecorator>
+      </encoder>
+    </appender>
+  </springProfile>
+
+  <springProfile name="!(qa | prod | k8s)">
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <pattern>%d{HH:mm:ss.SSS} %-5level [${service}] [%X{correlationId:-}] %logger{30} - %maskedMsg%n%wEx</pattern>
+      </encoder>
+    </appender>
+  </springProfile>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+  </root>
+</configuration>

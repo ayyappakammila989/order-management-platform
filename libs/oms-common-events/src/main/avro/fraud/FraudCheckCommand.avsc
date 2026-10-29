@@ -53,12 +53,13 @@
       "default": null
     },
     {
-      "name": "paymentGateway",
+      "name": "paymentMethod",
       "type": [
         "null",
-        "string"
+        "com.retail.oms.events.common.PaymentMethod"
       ],
-      "default": null
+      "default": null,
+      "doc": "gateway token, for the card-testing rule (many different tokens from one customer)"
     },
     {
       "name": "lines",

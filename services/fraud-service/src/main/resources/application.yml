@@ -1,0 +1,84 @@
+server:
+  port: 8109
+
+spring:
+  application:
+    name: fraud-service
+  config:
+    import: optional:configserver:http://localhost:8888
+  datasource:
+    url: jdbc:postgresql://localhost:5434/oms_fraud?socketTimeout=30
+    username: oms_fraud
+    password: oms_fraud
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 3000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: fraud-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/oms
+          jwk-set-uri: http://localhost:8180/realms/oms/protocol/openid-connect/certs
+
+oms:
+  security:
+    audience: oms-api
+  fraud:
+    review-score: 50            # score >= this: REVIEW (a supervisor decides the case)
+    reject-score: 80            # score >= this: REJECTED
+    dlq-topic: oms.fraud.dlq
+    topic-partitions: 3
+  kafka:
+    schema-registry-url: http://localhost:8081
+    schema-registry-timeout: 5s
+    listener-concurrency: 3
+    retry:
+      initial-interval: 1s
+      multiplier: 2.0
+      max-interval: 10s
+      max-retries: 4
+    registry-retry:
+      initial-interval: 1s
+      multiplier: 2.0
+      max-interval: 30s
+      max-retries: 8
+  outbox:
+    poll-interval: 200ms
+    batch-size: 100
+    send-timeout: 5s
+    retention: 7d
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  server:
+    port: 18109
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true

@@ -51,6 +51,9 @@ spring:
           default:
             connect-timeout: 1000
             read-timeout: 5000
+          inventory-service:     # a pre-check must be quick; a slow answer counts as no answer
+            connect-timeout: 500
+            read-timeout: 1000
 
 oms:
   security:
@@ -61,10 +64,16 @@ oms:
     max-lines: 50
     max-quantity-per-line: 999
     default-currency: USD
+    inventory-check:           # architecture 3.1 step 4; when inventory cannot answer, checkout goes on (the saga re-checks)
+      enabled: true
+      retries: 2
+      retry-wait: 200ms
   # pricing-service and order-service are found through Eureka by name; set a url here to bypass it
   pricing-service:
     url: ""
   order-service:
+    url: ""
+  inventory-service:
     url: ""
 
 springdoc:

@@ -54,6 +54,10 @@ public final class DeadLetterErrorHandlers {
                     registryErrors.increment();
                     log.warn("Schema Registry lookup failed for {}-{}@{} (attempt {}): {}", record.topic(),
                             record.partition(), record.offset(), deliveryAttempt, rootMessage(ex));
+                } else {
+                    // Spring itself says nothing until the retries are used up, so say what went wrong each time
+                    log.warn("Handling {}-{}@{} failed (attempt {}): {}", record.topic(), record.partition(),
+                            record.offset(), deliveryAttempt, rootMessage(ex));
                 }
             }
         });

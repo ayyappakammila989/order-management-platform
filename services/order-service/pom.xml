@@ -128,6 +128,17 @@
   </dependencies>
 
   <build>
+    <testResources>
+      <testResource>
+        <directory>src/test/resources</directory>
+      </testResource>
+      <!-- the real Keycloak realm, so the security IT tests what Compose imports -->
+      <testResource>
+        <directory>../../infra/keycloak</directory>
+        <includes><include>oms-realm.json</include></includes>
+        <targetPath>keycloak</targetPath>
+      </testResource>
+    </testResources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -160,6 +171,45 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <!-- Producer side of the contract with cart-service: generates tests from src/test/resources/contracts
+           and a stubs jar (order-service-*-stubs.jar) that cart-service runs against with Stub Runner.
+           Goals are bound explicitly: <extensions>true</extensions> loads the plugin's HTTP client into Maven's
+           core class loader and breaks the build (ClassCastException on BasicAuthCache). -->
+      <plugin>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-contract-maven-plugin</artifactId>
+        <version>${spring-cloud-contract.version}</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>generateTests</goal>
+              <goal>convert</goal>
+              <goal>generateStubs</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <testFramework>JUNIT5</testFramework>
+          <testMode>MOCKMVC</testMode>
+          <baseClassForTests>com.retail.oms.order.contract.ContractVerifierBase</baseClassForTests>
+        </configuration>
+      </plugin>
+      <!-- The contract plugin only registers its output folder when it regenerates. On an incremental build
+           ("Nothing to generate") the generated tests were silently not compiled and not run. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>add-contract-tests</id>
+            <phase>generate-test-sources</phase>
+            <goals><goal>add-test-source</goal></goals>
+            <configuration>
+              <sources><source>${project.build.directory}/generated-test-sources/contracts</source></sources>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

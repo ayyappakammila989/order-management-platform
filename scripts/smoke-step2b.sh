@@ -86,7 +86,8 @@ check "row: customer, PENDING, totals"    "$CUST_ID|PENDING|89.48|15.64|6.55|4.9
 check "two lines with line discounts/tax" "SKU-1,2,4.00,3.19;SKU-2,1,11.64,3.36" "$(psql_order "select string_agg(sku||','||quantity||','||discount||','||tax, ';' order by sku) from order_lines where order_id = '$ORDER_ID'")"
 
 echo "== read model (order-query-service -> Elasticsearch)"
-wait_for "order appears in Elasticsearch (PENDING)" "curl -s $ES/orders/_doc/$ORDER_ID | json \"['_source']['status']\"" PENDING
+# since step 3 the saga confirms the order within a second or two, so the read model may already say CONFIRMED
+wait_for "order appears in Elasticsearch (PENDING or CONFIRMED)" "curl -s $ES/orders/_doc/$ORDER_ID | json \"['_source']['status'] in ('PENDING', 'CONFIRMED')\"" True
 doc=$(curl -s $ES/orders/_doc/$ORDER_ID)
 check "ES doc: order number, customer, total" "$ORDER_NO $CUST_ID 85.38" "$(echo "$doc" | json "['_source']['orderNumber']") $(echo "$doc" | json "['_source']['customer']['id']") $(echo "$doc" | json "['_source']['totals']['grandTotal']")"
 check "ES doc: 2 lines, zip 10001"        "2 10001" "$(echo "$doc" | python3 -c "import sys,json; s=json.load(sys.stdin)['_source']; print(len(s['lines']), s['shipToZip'])")"
@@ -100,7 +101,9 @@ echo "== cancel flows through to the index"
 SVC_ORDER=http://localhost:8102
 check "customer cancels -> CANCELLED"     CANCELLED "$(curl -s -H "Authorization: Bearer $CUST" -H "$JSON" -d '{"reason":"smoke test"}' $SVC_ORDER/api/v1/orders/$ORDER_ID/cancel | json "['status']")"
 wait_for "Elasticsearch shows CANCELLED"  "curl -s $ES/orders/_doc/$ORDER_ID | json \"['_source']['status']\"" CANCELLED
-check "status history has CANCELLED and PENDING" "CANCELLED,PENDING" "$(curl -s $ES/orders/_doc/$ORDER_ID | python3 -c "import sys,json; print(','.join(sorted(h['to'] for h in json.load(sys.stdin)['_source']['statusHistory'])))")"
+# PENDING and CANCELLED, plus CONFIRMED when the saga (step 3) was faster than the cancel (code in a variable: bash 3.2)
+HIST_OK='import sys,json; h={x["to"] for x in json.load(sys.stdin)["_source"]["statusHistory"]}; print({"PENDING","CANCELLED"} <= h <= {"PENDING","CONFIRMED","CANCELLED"})'
+check "status history has PENDING and CANCELLED" True "$(curl -s $ES/orders/_doc/$ORDER_ID | python3 -c "$HIST_OK")"
 check "nothing new in the dead-letter topic" "$DLQ_BEFORE" "$(dlq_count)"
 GROUP_OUT="$(docker exec oms-kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:29092 --describe --group order-query-service 2>/dev/null)"
 # (until the step 3 follow-up the listener id was used as group id, so this group did not exist and "no lag" passed vacuously)

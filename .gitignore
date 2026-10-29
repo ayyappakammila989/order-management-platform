@@ -19,3 +19,6 @@ dist/
 *.tfstate
 *.tfstate.*
 *.tfvars
+
+# scripts/services.sh: logs and pids of locally started services
+.run/

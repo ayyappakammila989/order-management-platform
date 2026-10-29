@@ -14,9 +14,11 @@ json() { python3 -c "import sys,json; d=json.load(sys.stdin); print(eval('d' + s
 token() { curl -s -d "client_id=oms-dev-cli&grant_type=password&username=$1&password=Passw0rd!" "$TOKEN_URL" | json "['access_token']"; }
 sub() { python3 -c "import sys,json,base64; p=sys.argv[1].split('.')[1]; print(json.loads(base64.urlsafe_b64decode(p+'=='))['sub'])" "$1"; }
 psql_order() { docker exec oms-postgres psql -U oms_order -d oms_order -Atc "$1"; }
-# all values on a topic as JSON (Avro decoded with the Schema Registry), one per line
+# all values on a topic as JSON (Avro decoded with the Schema Registry), one per line. --skip-message-on-error: one
+# undecodable record (e.g. an old event whose schema id is gone) must not end the dump
 topic_dump() { docker exec oms-schema-registry kafka-avro-console-consumer --bootstrap-server kafka:29092 \
-  --topic "$1" --from-beginning --timeout-ms 8000 --property schema.registry.url=http://localhost:8081 2>/dev/null; }
+  --topic "$1" --from-beginning --timeout-ms 8000 --skip-message-on-error \
+  --property schema.registry.url=http://localhost:8081 2>/dev/null; }
 
 order_body() { cat <<EOF
 {"customerId":"$1","channel":"WEB","currency":"USD",

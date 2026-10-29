@@ -49,7 +49,6 @@ Name and password are both `oms_<service>`; the superuser is `postgres` / `postg
 | `oms_keycloak` | Keycloak |
 | `oms_cart`, `oms_order`, `oms_pricing` | step 2 |
 | `oms_saga` (order-orchestrator, the design's `saga_db`), `oms_inventory` (inventory-service), `oms_payment` (part B) | step 3 |
-| `oms_orchestrator` | empty leftover from step 1 on old volumes (the saga uses `oms_saga`); new volumes no longer create it |
 
 Add another one to a running container: `infra/postgres/create-service-db.sh <service>`.
 

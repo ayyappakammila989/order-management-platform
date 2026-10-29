@@ -1,0 +1,25 @@
+{
+  "name": "tax 73301 TX",
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "url": "/internal/v1/tax/calculate",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.zip == '73301')]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "zip": "73301",
+      "state": "TX",
+      "rate": 0.0825,
+      "source": "wiremock"
+    }
+  }
+}

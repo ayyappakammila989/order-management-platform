@@ -6,13 +6,17 @@
 #   docker compose --profile foundation up -d  # everything step 1 needs
 #   docker compose --profile kafka up -d       # Kafka (KRaft) + Schema Registry + Kafka UI
 #   docker compose --profile cdc up -d         # Kafka + Schema Registry + Kafka Connect/Debezium + PostgreSQL
-#   docker compose --profile order-core up -d  # everything step 2 needs (foundation + kafka + cdc)
+#   docker compose --profile search up -d     # Elasticsearch only (order-query-service)
+#   docker compose --profile kibana up -d     # Kibana (+ Elasticsearch); optional, to look at the index
+#   docker compose --profile tax-stub up -d   # WireMock standing in for tax-service (pricing-service)
+#   docker compose --profile order-core up -d  # everything step 2 needs (foundation + kafka + cdc + search + tax stub)
 # Stop:  docker compose --profile <name> down      (add -v to delete data - ask first)
 #
 # Memory budget (Docker Desktop has 8 GB): every container has mem_limit and every JVM a capped heap.
 #   postgres 384m + redis 128m + keycloak 1g                                   = foundation ~1.5 GB
 #   kafka 1g + schema-registry 512m + kafka-connect 1g + kafka-ui 512m         = +3 GB
-#   order-core total limit ~4.5 GB, leaving room for Testcontainers runs.
+#   elasticsearch 1280m + wiremock 256m                                        = +1.5 GB (order-core ~6 GB of limits)
+#   kibana 1g only with the kibana profile (not in order-core): start it when you want to browse the index.
 name: oms
 
 services:
@@ -190,7 +194,67 @@ services:
       - "8090:8080"
     mem_limit: 512m
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.19
+    container_name: oms-elasticsearch
+    profiles: [search, kibana, order-core]
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"      # local only; real environments turn security on
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      cluster.routing.allocation.disk.threshold_enabled: "false"   # a nearly full laptop disk must not turn the index read-only
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=2s' >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    mem_limit: 1280m     # 512m heap + off-heap; measured 913-977 MiB, so 1g was too tight
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.19.19
+    container_name: oms-kibana
+    profiles: [kibana]
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      NODE_OPTIONS: "--max-old-space-size=512"
+      TELEMETRY_OPTIN: "false"
+    ports:
+      - "5601:5601"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:5601/api/status >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    mem_limit: 1g
+
+  # Stands in for tax-service until it is built: answers POST /internal/v1/tax/calculate from files in infra/wiremock/tax
+  tax-stub:
+    image: wiremock/wiremock:3.13.2
+    container_name: oms-tax-stub
+    profiles: [tax-stub, order-core]
+    command: ["--global-response-templating", "--disable-gzip", "--verbose"]
+    ports:
+      - "8190:8080"
+    volumes:
+      - ./infra/wiremock/tax:/home/wiremock:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/__admin/mappings >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 256m
+
 volumes:
   postgres-data:
   redis-data:
   kafka-data:
+  elasticsearch-data:

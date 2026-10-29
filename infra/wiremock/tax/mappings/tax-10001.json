@@ -1,0 +1,25 @@
+{
+  "name": "tax 10001 NY",
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "url": "/internal/v1/tax/calculate",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.zip == '10001')]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "zip": "10001",
+      "state": "NY",
+      "rate": 0.08875,
+      "source": "wiremock"
+    }
+  }
+}

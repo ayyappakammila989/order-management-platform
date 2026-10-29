@@ -1,0 +1,25 @@
+{
+  "name": "tax 97201 OR",
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "url": "/internal/v1/tax/calculate",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.zip == '97201')]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "zip": "97201",
+      "state": "OR",
+      "rate": 0.0,
+      "source": "wiremock"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "type": "fixed",
+  "name": "Money",
+  "namespace": "com.retail.oms.events.common",
+  "doc": "Amount with exactly 2 decimals (never a float). 8 bytes holds up to 18 digits.",
+  "size": 8,
+  "logicalType": "decimal",
+  "precision": 18,
+  "scale": 2
+}

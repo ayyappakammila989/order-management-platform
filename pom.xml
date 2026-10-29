@@ -59,6 +59,7 @@
     <module>services/pricing-service</module>
     <module>services/cart-service</module>
     <module>services/order-query-service</module>
+    <module>services/inventory-service</module>
   </modules>
 
   <dependencyManagement>

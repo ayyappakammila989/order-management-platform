@@ -1,0 +1,8 @@
+# Test overrides, loaded on top of src/main/resources/application.yml (classpath:/config/ wins).
+spring:
+  cloud:
+    config:
+      enabled: false
+eureka:
+  client:
+    enabled: false

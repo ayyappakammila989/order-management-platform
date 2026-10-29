@@ -1,0 +1,109 @@
+server:
+  port: 8106
+
+spring:
+  application:
+    name: order-orchestrator
+  config:
+    import: optional:configserver:http://localhost:8888
+  datasource:
+    # socketTimeout (s): a database that stops answering fails the query instead of hanging the Kafka consumer forever
+    url: jdbc:postgresql://localhost:5434/oms_saga?socketTimeout=30
+    username: oms_saga
+    password: oms_saga
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 3000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: order-orchestrator
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/oms
+          jwk-set-uri: http://localhost:8180/realms/oms/protocol/openid-connect/certs
+      client:
+        # the orchestrator calls order-service as itself (client credentials, role SERVICE)
+        registration:
+          order-orchestrator:
+            provider: keycloak
+            client-id: order-orchestrator
+            client-secret: dev-order-orchestrator-secret
+            authorization-grant-type: client_credentials
+        provider:
+          keycloak:
+            token-uri: http://localhost:8180/realms/oms/protocol/openid-connect/token
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 1000
+            read-timeout: 3000
+
+oms:
+  security:
+    audience: oms-api
+  # order-service is found through Eureka by name; set a url here to bypass it
+  order-service:
+    url: ""
+  saga:
+    # no reply within this time: the step counts as failed and the saga compensates. Must be longer than the
+    # consumer retry window below, or an order-service hiccup while handling a reply would cancel the order.
+    step-timeout: 2m
+    compensation-max-attempts: 3
+    timeout-check-interval: 5s
+  kafka:
+    schema-registry-url: http://localhost:8081
+    schema-registry-timeout: 5s
+    listener-concurrency: 3
+    dlq-topic: oms.order-orchestrator.dlq
+    topic-partitions: 3
+    retry:                      # order-service or the database down: 1, 2, 4, 8, 16, 30 s (~1 min), then the dead-letter topic
+      initial-interval: 1s
+      multiplier: 2.0
+      max-interval: 30s
+      max-retries: 6
+    registry-retry:
+      initial-interval: 1s
+      multiplier: 2.0
+      max-interval: 30s
+      max-retries: 8
+  outbox:
+    poll-interval: 200ms
+    batch-size: 100
+    send-timeout: 5s
+    retention: 7d
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  server:
+    port: 18106
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true

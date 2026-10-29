@@ -5,7 +5,22 @@ A task is only marked **done** after it was built/run and the output was checked
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done and tested
 
-## Step 3 - Saga and payments: Part A DONE (on `develop`), Part B waits for the owner's "go"
+## Step 3 - Saga and payments: Part A DONE, Part B IN PROGRESS (owner said "go" on 2026-10-29)
+
+### Part B task list
+- [x] 3B.0 Housekeeping: empty `oms_orchestrator` dropped (owner's OK), local-access fixed; DLQ records kept for the owner
+- [x] 3B.1 Contracts: Avro schemas for fraud, payment, gateway, shipment (`libs/oms-common-events`, 5 new tests); payment method
+      (gateway token) from checkout -> order-service (`V2__payment_method.sql`, optional there) -> `oms.order.created`
+      (optional field, backward compatible); cart checkout requires it. order-service 83 tests, cart-service 44, events 13: green
+- [ ] 3B.2 Compose profile `payments`: stripe-mock, PayPal WireMock stub; `oms_fraud` database
+- [ ] 3B.3 fraud-service (8109): rules, checks, review cases, Kafka check/cancel commands
+- [ ] 3B.4 payment-gateway-adapter (8108): Camel routes to stripe-mock / PayPal stub, Redis idempotency, circuit breaker + 10 s
+      time limiter, signature-checked webhooks de-duplicated by event id
+- [ ] 3B.5 payment-service (8107): authorize, capture on shipment, void, refund (agent limit $200), idempotency key UNIQUE,
+      transaction history, audit trail, PENDING_RETRY
+- [ ] 3B.6 order-orchestrator: FRAUD_CHECK and AUTHORIZE_PAYMENT steps, review/pending waits, compensation void -> fraud cancel -> release
+- [ ] 3B.7 End to end on the Compose stack (`scripts/smoke-step3b.sh`), regressions, full reactor
+- [ ] 3B.8 Docs, merge step 3 to `main`, tag `step-3-saga-payments`
 
 Split agreed with the owner: **Part A** = step 2 follow-up fix, inventory-service, order-orchestrator, cart inventory
 pre-check. **Part B** (only after the owner says "go") = payment-service, payment-gateway-adapter (Camel + stripe-mock),

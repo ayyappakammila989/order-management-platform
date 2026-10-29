@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "PaymentLine",
+  "namespace": "com.retail.oms.events.payment",
+  "doc": "One order line as payment-service needs it to capture per shipment: amount = unitPrice x quantity - discount + tax.",
+  "fields": [
+    {
+      "name": "sku",
+      "type": "string"
+    },
+    {
+      "name": "quantity",
+      "type": "int"
+    },
+    {
+      "name": "amount",
+      "type": "com.retail.oms.events.common.Money"
+    }
+  ]
+}

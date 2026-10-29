@@ -1,0 +1,31 @@
+{
+  "type": "record",
+  "name": "VoidPaymentCommand",
+  "namespace": "com.retail.oms.events.payment",
+  "doc": "Compensation, sent to oms.payment.void-cmd: release the authorization of the order. Reply: oms.payment.voided (also when there was nothing to void).",
+  "fields": [
+    {
+      "name": "commandId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "sagaId",
+      "type": "string"
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "reason",
+      "type": "string"
+    }
+  ]
+}

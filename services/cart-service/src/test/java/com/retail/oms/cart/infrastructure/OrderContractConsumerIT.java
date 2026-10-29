@@ -62,7 +62,8 @@ class OrderContractConsumerIT {
 
         CheckoutService.Result result = checkout.checkout(new CheckoutService.Command(cartId, "cust-1",
                 "checkout-7f3c2a10", "WEB", null,
-                new OrderRequest.Address("Jane Doe", "1 Main St", "New York", "NY", "10001")));
+                new OrderRequest.Address("Jane Doe", "1 Main St", "New York", "NY", "10001"),
+                new OrderRequest.PaymentMethod("STRIPE", "pm_card_visa")));
 
         assertThat(result.order().orderNumber()).matches("OMS-[0-9]{8}-[0-9]{6}");
         assertThat(result.order().status()).isEqualTo("PENDING");
@@ -82,7 +83,8 @@ class OrderContractConsumerIT {
                 new BigDecimal("5.00"), BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("0.00"), new BigDecimal("4.00")));
 
         assertThatThrownBy(() -> checkout.checkout(new CheckoutService.Command(cartId, "cust-1", "checkout-mismatch-01",
-                "WEB", null, new OrderRequest.Address("Jane Doe", "1 Main St", "New York", "NY", "10001"))))
+                "WEB", null, new OrderRequest.Address("Jane Doe", "1 Main St", "New York", "NY", "10001"),
+                new OrderRequest.PaymentMethod("STRIPE", "pm_card_visa"))))
                 .isInstanceOfSatisfying(OmsException.class, e -> {
                     assertThat(e.getErrorCode()).isEqualTo("ORD-422");
                     assertThat(e.getHttpStatus().value()).isEqualTo(422);
@@ -96,7 +98,7 @@ class OrderContractConsumerIT {
         OrderRequest request = new OrderRequest("cust-no-key", "WEB", "USD", List.of(new OrderRequest.Line("SKU-1", 1,
                 new BigDecimal("5.00"), null, null, "SHIP")),
                 new OrderRequest.Address("Jane Doe", "1 Main St", "New York", "NY", "10001"),
-                new BigDecimal("0.00"), null);
+                new BigDecimal("0.00"), null, null);
 
         assertThatThrownBy(() -> orderClient.create(null, request))
                 .isInstanceOf(NoFallbackAvailableException.class)      // the circuit breaker wraps what the decoder threw

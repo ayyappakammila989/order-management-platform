@@ -1,0 +1,31 @@
+{
+  "type": "record",
+  "name": "FraudCancelCommand",
+  "namespace": "com.retail.oms.events.fraud",
+  "doc": "Compensation, sent to oms.fraud.cancel-cmd: the order will not go ahead, close its check and any open review case. Reply: oms.fraud.cancelled.",
+  "fields": [
+    {
+      "name": "commandId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "sagaId",
+      "type": "string"
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "reason",
+      "type": "string"
+    }
+  ]
+}

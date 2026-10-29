@@ -26,5 +26,7 @@ public record CreateOrderRequest(
         @NotNull @DecimalMin("0.00") @Digits(integer = 10, fraction = 2) BigDecimal shippingTotal,
         @DecimalMin("0.00") @Digits(integer = 10, fraction = 2)
         @Schema(description = "Total the customer saw; the order is refused (ORD-422) if the lines add up differently")
-        BigDecimal expectedGrandTotal) {
+        BigDecimal expectedGrandTotal,
+        @Valid @Schema(description = "Gateway token from checkout; without one the saga cancels the order at the payment step")
+        PaymentMethodRequest paymentMethod) {
 }

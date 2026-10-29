@@ -10,6 +10,7 @@ import com.retail.oms.order.domain.AddressType;
 import com.retail.oms.order.domain.Order;
 import com.retail.oms.order.domain.OrderAddress;
 import com.retail.oms.order.domain.OrderLine;
+import com.retail.oms.order.domain.PaymentMethod;
 import java.util.ArrayList;
 import java.util.List;
 import org.mapstruct.Mapper;
@@ -40,7 +41,9 @@ public interface OrderApiMapper {
             addresses.add(toDomain(request.billingAddress(), AddressType.BILL));
         }
         return new CreateOrderCommand(request.customerId(), request.channel(), request.currency(),
-                toNewLines(request.lines()), addresses, request.shippingTotal(), request.expectedGrandTotal());
+                toNewLines(request.lines()), addresses, request.shippingTotal(), request.expectedGrandTotal(),
+                request.paymentMethod() == null ? null
+                        : new PaymentMethod(request.paymentMethod().gateway(), request.paymentMethod().methodToken()));
     }
 
     default Address toDomain(AddressRequest a, AddressType type) {

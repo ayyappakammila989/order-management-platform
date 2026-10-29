@@ -94,6 +94,6 @@ class OrderOutboxTransactionIT {
         return new CreateOrderCommand(customerId, Channel.MOBILE, "USD",
                 List.of(new Order.NewLine("SKU-9", 1, new BigDecimal("10.00"), BigDecimal.ZERO,
                         new BigDecimal("0.80"), FulfillmentType.SHIP)),
-                List.of(TestOrders.address(AddressType.SHIP)), new BigDecimal("0.00"), null);
+                List.of(TestOrders.address(AddressType.SHIP)), new BigDecimal("0.00"), null, null);
     }
 }

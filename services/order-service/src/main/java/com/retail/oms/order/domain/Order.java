@@ -54,6 +54,12 @@ public class Order {
     private BigDecimal grandTotal;
     private String sapOrderNumber;
 
+    @Enumerated(EnumType.STRING)
+    @Column(updatable = false)
+    private PaymentGateway paymentGateway;
+    @Column(updatable = false)
+    private String paymentMethodToken;
+
     @Column(updatable = false)
     private String idempotencyKey;
 
@@ -138,6 +144,18 @@ public class Order {
         updatedAt = now;
         statusHistory.add(new OrderStatusHistory(this, from, next, reason, changedBy, now));
         return Optional.of(new StatusChange(from, next, reason, changedBy, now));
+    }
+
+    /** Set once, when the order is placed. */
+    public void usePaymentMethod(PaymentMethod method) {
+        if (method != null) {
+            this.paymentGateway = method.gateway();
+            this.paymentMethodToken = method.methodToken();
+        }
+    }
+
+    public Optional<PaymentMethod> paymentMethod() {
+        return paymentGateway == null ? Optional.empty() : Optional.of(new PaymentMethod(paymentGateway, paymentMethodToken));
     }
 
     public Optional<OrderAddress> address(AddressType type) {

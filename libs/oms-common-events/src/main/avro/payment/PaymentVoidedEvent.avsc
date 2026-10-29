@@ -1,0 +1,52 @@
+{
+  "type": "record",
+  "name": "PaymentVoidedEvent",
+  "namespace": "com.retail.oms.events.payment",
+  "doc": "Reply on oms.payment.voided to a VoidPaymentCommand. Key = orderId.",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "commandId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "sagaId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "paymentId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "note",
+      "type": "string",
+      "doc": "VOIDED, NOTHING_TO_VOID, CANCELLED_BEFORE_AUTHORIZATION, ..."
+    }
+  ]
+}

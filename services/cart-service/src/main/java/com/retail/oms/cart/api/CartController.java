@@ -88,7 +88,9 @@ public class CartController {
                 request.shippingAddress().line1(), request.shippingAddress().city(), request.shippingAddress().state(),
                 request.shippingAddress().zip());
         CheckoutService.Result result = checkout.checkout(new CheckoutService.Command(cartId, auth.getName(),
-                idempotencyKey, request.channel() == null ? "WEB" : request.channel(), request.couponCode(), address));
+                idempotencyKey, request.channel() == null ? "WEB" : request.channel(), request.couponCode(), address,
+                new OrderClient.OrderRequest.PaymentMethod(request.paymentMethod().gateway(),
+                        request.paymentMethod().methodToken())));
         var order = result.order();
         return ResponseEntity.created(URI.create("/api/v1/orders/" + order.orderId()))
                 .header("Idempotent-Replayed", String.valueOf(result.replayed()))

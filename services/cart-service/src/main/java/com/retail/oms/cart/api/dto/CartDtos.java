@@ -41,7 +41,13 @@ public final class CartDtos {
     }
 
     public record CheckoutRequest(@NotNull @Valid AddressRequest shippingAddress, @Size(max = 40) String couponCode,
-                                  @Pattern(regexp = "WEB|MOBILE|STORE|CALL_CENTER") String channel) {
+                                  @Pattern(regexp = "WEB|MOBILE|STORE|CALL_CENTER") String channel,
+                                  @NotNull @Valid PaymentMethodRequest paymentMethod) {
+    }
+
+    /** The client tokenizes the card (Stripe.js) or gets PayPal approval first; only the token is sent here. */
+    public record PaymentMethodRequest(@NotNull @Pattern(regexp = "STRIPE|PAYPAL") String gateway,
+                                       @NotNull @Pattern(regexp = "[A-Za-z0-9_-]{3,100}") String methodToken) {
     }
 
     public record SaveCartRequest(@NotBlank @Size(max = 80) String name) {

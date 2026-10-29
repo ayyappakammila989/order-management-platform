@@ -136,7 +136,8 @@ class RedisCartStoreIT {
     void checkoutRecordIsWrittenOnceAndExpiresAfter24Hours() {
         var records = new RedisCheckoutRecordStore(redis, mapper, props);
         var request = new OrderClient.OrderRequest("cust-1", "WEB", "USD", List.of(), null,
-                new java.math.BigDecimal("4.99"), new java.math.BigDecimal("4.99"));
+                new java.math.BigDecimal("4.99"), new java.math.BigDecimal("4.99"),
+                new OrderClient.OrderRequest.PaymentMethod("PAYPAL", "PAYPAL-ORDER-1"));
 
         assertThat(records.saveRequest("cust-1", "checkout-0001", "cart-a", request)).isTrue();
         assertThat(records.saveRequest("cust-1", "checkout-0001", "cart-b", request)).isFalse();

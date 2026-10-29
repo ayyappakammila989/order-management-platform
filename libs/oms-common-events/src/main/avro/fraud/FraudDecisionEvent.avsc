@@ -1,0 +1,67 @@
+{
+  "type": "record",
+  "name": "FraudDecisionEvent",
+  "namespace": "com.retail.oms.events.fraud",
+  "doc": "Reply on oms.fraud.approved / oms.fraud.review / oms.fraud.rejected (topic = decision). A REVIEW is followed later by an APPROVED or REJECTED with the same commandId once a supervisor decides the case. Key = orderId.",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "commandId",
+      "type": "string",
+      "doc": "the FraudCheckCommand this answers"
+    },
+    {
+      "name": "sagaId",
+      "type": "string"
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "checkId",
+      "type": "string"
+    },
+    {
+      "name": "decision",
+      "type": "string",
+      "doc": "APPROVED, REVIEW or REJECTED"
+    },
+    {
+      "name": "score",
+      "type": "int",
+      "doc": "0..100+, sum of the rules that hit"
+    },
+    {
+      "name": "reasons",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "doc": "codes of the rules that hit, e.g. HIGH_ORDER_VALUE"
+    },
+    {
+      "name": "caseId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "decidedBy",
+      "type": "string",
+      "doc": "RULES, or the user id of the supervisor who decided the case"
+    }
+  ]
+}

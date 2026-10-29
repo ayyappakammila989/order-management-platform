@@ -49,6 +49,7 @@ public class OrderService {
         Order order = Order.place(UUID.randomUUID(), orderNumber, command.customerId(), command.channel(),
                 command.currency(), command.lines(), command.addresses(), command.shippingTotal(), idempotencyKey,
                 createdBy, now);
+        order.usePaymentMethod(command.paymentMethod());
         if (command.expectedGrandTotal() != null && command.expectedGrandTotal().compareTo(order.getGrandTotal()) != 0) {
             throw new OrderTotalsMismatchException(command.expectedGrandTotal(), order.getGrandTotal());
         }

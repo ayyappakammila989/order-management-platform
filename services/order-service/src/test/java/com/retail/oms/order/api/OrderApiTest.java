@@ -60,7 +60,8 @@ class OrderApiTest {
              "lines":[{"sku":"SKU-1","quantity":2,"unitPrice":19.99,"discount":2.00,"tax":3.00,"fulfillmentType":"SHIP"},
                       {"sku":"SKU-2","quantity":1,"unitPrice":5.00,"tax":0.40,"fulfillmentType":"SHIP"}],
              "shippingAddress":{"name":"Jane Doe","line1":"1 Main St","city":"New York","state":"NY","zip":"10001"},
-             "shippingTotal":4.99,"expectedGrandTotal":51.37}""";
+             "shippingTotal":4.99,"expectedGrandTotal":51.37,
+             "paymentMethod":{"gateway":"STRIPE","methodToken":"pm_card_visa"}}""";
 
     @Autowired MockMvc mvc;
     @MockitoBean OrderService orderService;
@@ -145,6 +146,18 @@ class OrderApiTest {
                 .andExpect(jsonPath("$.errorCode").value("VAL-400"))
                 .andExpect(jsonPath("$.fieldErrors[*].field", containsInAnyOrder(
                         "currency", "lines[0].quantity", "lines[0].unitPrice", "shippingAddress.zip")));
+    }
+
+    @Test
+    void paymentMethodIsValidated() throws Exception {
+        String bad = VALID_BODY.replace("\"gateway\":\"STRIPE\"", "\"gateway\":\"VISA\"");
+        mvc.perform(createOrder("checkout-0005", bad).with(service()))
+                .andExpect(status().isBadRequest());
+
+        String badToken = VALID_BODY.replace("pm_card_visa", "4242 4242 4242 4242");
+        mvc.perform(createOrder("checkout-0006", badToken).with(service()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors[*].field", containsInAnyOrder("paymentMethod.methodToken")));
     }
 
     @Test

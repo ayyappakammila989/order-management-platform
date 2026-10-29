@@ -1,0 +1,47 @@
+{
+  "type": "record",
+  "name": "PaymentCapturedEvent",
+  "namespace": "com.retail.oms.events.payment",
+  "doc": "Fact on oms.payment.captured (architecture 3.4 step 7): money taken for a shipment. Key = orderId.",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "paymentId",
+      "type": "string"
+    },
+    {
+      "name": "shipmentId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "amount",
+      "type": "com.retail.oms.events.common.Money"
+    },
+    {
+      "name": "totalCaptured",
+      "type": "com.retail.oms.events.common.Money"
+    },
+    {
+      "name": "currency",
+      "type": "string"
+    }
+  ]
+}

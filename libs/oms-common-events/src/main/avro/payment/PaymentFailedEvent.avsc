@@ -1,0 +1,60 @@
+{
+  "type": "record",
+  "name": "PaymentFailedEvent",
+  "namespace": "com.retail.oms.events.payment",
+  "doc": "Reply on oms.payment.failed: declined, invalid, or the gateway stayed unavailable. Nothing is authorized. Key = orderId.",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "commandId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "sagaId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "paymentId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "reason",
+      "type": "string"
+    },
+    {
+      "name": "declineCode",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "gateway decline code, e.g. card_declined, INSTRUMENT_DECLINED"
+    }
+  ]
+}

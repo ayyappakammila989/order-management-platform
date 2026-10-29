@@ -1,0 +1,58 @@
+{
+  "type": "record",
+  "name": "PaymentPendingEvent",
+  "namespace": "com.retail.oms.events.payment",
+  "doc": "Interim reply on oms.payment.pending (architecture 6.4: payment marked PENDING_RETRY, the saga waits). The gateway did not answer; payment-service retries with the same idempotency key. Key = orderId.",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "commandId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "sagaId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "paymentId",
+      "type": "string"
+    },
+    {
+      "name": "reason",
+      "type": "string"
+    },
+    {
+      "name": "attempt",
+      "type": "int"
+    },
+    {
+      "name": "nextAttemptAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    }
+  ]
+}

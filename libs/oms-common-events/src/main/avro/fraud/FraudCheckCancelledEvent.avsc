@@ -1,0 +1,36 @@
+{
+  "type": "record",
+  "name": "FraudCheckCancelledEvent",
+  "namespace": "com.retail.oms.events.fraud",
+  "doc": "Reply on oms.fraud.cancelled to a FraudCancelCommand (also when there was nothing to cancel). Key = orderId.",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "commandId",
+      "type": "string"
+    },
+    {
+      "name": "sagaId",
+      "type": "string"
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "note",
+      "type": "string",
+      "doc": "e.g. CHECK_CANCELLED, CASE_CLOSED, NOTHING_TO_CANCEL"
+    }
+  ]
+}

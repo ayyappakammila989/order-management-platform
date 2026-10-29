@@ -1,0 +1,64 @@
+{
+  "type": "record",
+  "name": "AuthorizePaymentCommand",
+  "namespace": "com.retail.oms.events.payment",
+  "doc": "Sent by order-orchestrator to oms.payment.authorize-cmd. Key = orderId. Replies: oms.payment.authorized, oms.payment.failed, oms.payment.pending (still trying).",
+  "fields": [
+    {
+      "name": "commandId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "sagaId",
+      "type": "string"
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "orderNumber",
+      "type": "string"
+    },
+    {
+      "name": "customerId",
+      "type": "string"
+    },
+    {
+      "name": "idempotencyKey",
+      "type": "string",
+      "doc": "the same order always sends the same key (auth-{orderId}): a repeated command never charges twice"
+    },
+    {
+      "name": "currency",
+      "type": "string"
+    },
+    {
+      "name": "amount",
+      "type": "com.retail.oms.events.common.Money",
+      "doc": "amount to authorize = order grand total"
+    },
+    {
+      "name": "paymentMethod",
+      "type": "com.retail.oms.events.common.PaymentMethod"
+    },
+    {
+      "name": "lines",
+      "type": {
+        "type": "array",
+        "items": "com.retail.oms.events.payment.PaymentLine"
+      }
+    },
+    {
+      "name": "shippingAmount",
+      "type": "com.retail.oms.events.common.Money"
+    }
+  ]
+}

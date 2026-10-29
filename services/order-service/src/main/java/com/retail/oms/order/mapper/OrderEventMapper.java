@@ -1,5 +1,6 @@
 package com.retail.oms.order.mapper;
 
+import com.retail.oms.events.common.PaymentMethod;
 import com.retail.oms.events.order.OrderCreatedEvent;
 import com.retail.oms.events.order.OrderStatusChangedEvent;
 import com.retail.oms.order.domain.AddressType;
@@ -35,6 +36,8 @@ public class OrderEventMapper {
                 .setGrandTotal(order.getGrandTotal())
                 .setLines(order.getLines().stream().map(OrderEventMapper::toLine).toList())
                 .setShipToZip(order.address(AddressType.SHIP).map(OrderAddress::getZip).orElse(null))
+                .setPaymentMethod(order.paymentMethod()
+                        .map(m -> new PaymentMethod(m.gateway().name(), m.methodToken())).orElse(null))
                 .build();
     }
 

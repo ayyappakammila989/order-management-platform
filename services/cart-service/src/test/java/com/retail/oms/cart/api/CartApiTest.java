@@ -43,7 +43,7 @@ class CartApiTest {
 
     static final String CHECKOUT_BODY = """
             {"shippingAddress":{"name":"Jane Doe","line1":"1 Main St","city":"New York","state":"NY","zip":"10001"},
-             "couponCode":"SPRING10"}""";
+             "couponCode":"SPRING10","paymentMethod":{"gateway":"STRIPE","methodToken":"pm_card_visa"}}""";
 
     @Autowired MockMvc mvc;
     @MockitoBean CartService carts;
@@ -128,6 +128,16 @@ class CartApiTest {
     }
 
     @Test
+    void checkoutWithoutPaymentMethodIs400() throws Exception {
+        String noPayment = CHECKOUT_BODY.replace(",\"paymentMethod\":{\"gateway\":\"STRIPE\",\"methodToken\":\"pm_card_visa\"}", "");
+        mvc.perform(post("/api/v1/carts/c1/checkout").with(customer("cust-1")).header("Idempotency-Key", "checkout-0001")
+                        .contentType(MediaType.APPLICATION_JSON).content(noPayment))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("paymentMethod"));
+        verifyNoInteractions(checkout);
+    }
+
+    @Test
     void checkoutReturnsTheOrderAndReportsReplays() throws Exception {
         UUID orderId = UUID.randomUUID();
         OrderSummary order = new OrderSummary(orderId, "OMS-20261029-000001", "cust-1", "PENDING", "USD",
@@ -147,5 +157,6 @@ class CartApiTest {
         org.assertj.core.api.Assertions.assertThat(captor.getValue().customerId()).isEqualTo("cust-1");
         org.assertj.core.api.Assertions.assertThat(captor.getValue().channel()).isEqualTo("WEB");      // default
         org.assertj.core.api.Assertions.assertThat(captor.getValue().couponCode()).isEqualTo("SPRING10");
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().paymentMethod().methodToken()).isEqualTo("pm_card_visa");
     }
 }

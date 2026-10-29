@@ -36,9 +36,30 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Import(PostgresTestConfig.class)
 class KeycloakSecurityIT {
 
+    /**
+     * The project realm with one test-only change: sslRequired "external" -> "none". Through Docker Desktop's
+     * port forwarding Keycloak does not always see a private client address, and then answers "HTTPS required".
+     * The checked-in realm keeps "external".
+     */
+    static final String REALM_FILE = writeTestRealm();
+
     @Container
     static final KeycloakContainer KEYCLOAK = new KeycloakContainer("quay.io/keycloak/keycloak:26.8.1")
-            .withRealmImportFile("keycloak/oms-realm.json");
+            .withRealmImportFile(REALM_FILE);
+
+    static String writeTestRealm() {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            var realm = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(
+                    KeycloakSecurityIT.class.getResourceAsStream("/keycloak/oms-realm.json"));
+            realm.put("sslRequired", "none");
+            java.nio.file.Path target = java.nio.file.Path.of("target/test-classes/keycloak/oms-realm-it.json");
+            mapper.writeValue(target.toFile(), realm);
+            return "keycloak/oms-realm-it.json";
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
 
     @Container
     @ServiceConnection(name = "redis")
@@ -105,18 +126,30 @@ class KeycloakSecurityIT {
     }
 
     @Test
-    void missingTamperedAndForeignRealmTokensAre401() throws Exception {
+    void missingTamperedAndForgedTokensAre401() throws Exception {
         String[] parts = customerToken.split("\\.");
         String tamperedPayload = Base64.getUrlEncoder().withoutPadding().encodeToString(
                 new String(Base64.getUrlDecoder().decode(parts[1])).replace("CUSTOMER", "SERVICE").getBytes());
         String tampered = parts[0] + "." + tamperedPayload + "." + parts[2];
-        String masterRealmToken = KEYCLOAK.getKeycloakAdminClient().tokenManager().getAccessTokenString();
 
         assertThat(get("/api/v1/orders/" + UUID.randomUUID(), null).status()).isEqualTo(401);
         assertThat(get("/api/v1/orders/" + UUID.randomUUID(), tampered).status()).isEqualTo(401);
-        var foreign = get("/api/v1/orders/" + UUID.randomUUID(), masterRealmToken);
-        assertThat(foreign.status()).isEqualTo(401);
-        assertThat(foreign.body().path("errorCode").asText()).isEqualTo("SEC-401");
+        var forged = get("/api/v1/orders/" + UUID.randomUUID(), forgedServiceToken());
+        assertThat(forged.status()).isEqualTo(401);
+        assertThat(forged.body().path("errorCode").asText()).isEqualTo("SEC-401");
+    }
+
+    /** Right issuer, audience and role, but signed with a key that is not in the realm's JWKS. */
+    private static String forgedServiceToken() throws Exception {
+        var key = new com.nimbusds.jose.jwk.gen.RSAKeyGenerator(2048).keyID("attacker").generate();
+        var claims = new com.nimbusds.jwt.JWTClaimsSet.Builder()
+                .issuer(KEYCLOAK.getAuthServerUrl() + "/realms/oms").audience("oms-api").subject("attacker")
+                .expirationTime(new java.util.Date(System.currentTimeMillis() + 60_000))
+                .claim("realm_access", java.util.Map.of("roles", java.util.List.of("SERVICE"))).build();
+        var jwt = new com.nimbusds.jwt.SignedJWT(new com.nimbusds.jose.JWSHeader.Builder(
+                com.nimbusds.jose.JWSAlgorithm.RS256).keyID("attacker").build(), claims);
+        jwt.sign(new com.nimbusds.jose.crypto.RSASSASigner(key));
+        return jwt.serialize();
     }
 
     // ---- helpers ----

@@ -1,4 +1,7 @@
-description: Without an Idempotency-Key the order is refused, so a retry can never create a second order.
+description: |
+  Without an Idempotency-Key the order is refused, so a retry can never create a second order.
+  A stub cannot say "header absent", so this request has its own customerId; otherwise the stub would also match
+  requests of the other contracts that do carry a key.
 name: create_order_without_idempotency_key
 request:
   method: POST
@@ -6,7 +9,7 @@ request:
   headers:
     Content-Type: application/json
   body:
-    customerId: cust-1
+    customerId: cust-no-key
     channel: WEB
     currency: USD
     lines:

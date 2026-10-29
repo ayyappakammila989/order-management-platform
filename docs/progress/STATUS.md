@@ -5,10 +5,77 @@ A task is only marked **done** after it was built/run and the output was checked
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done and tested
 
-## Step 2 - Order core: IN PROGRESS (Part A done, Part B not started)
+## Step 2 - Order core: COMPLETE (Part A and Part B on `develop`, merged to `main` and tagged `step-2`)
 
-Split agreed with the owner: **Part A** = Kafka infrastructure + order-service with outbox (done, on `develop`).
-**Part B** = cart-service, pricing-service (no tax), order-query-service on Elasticsearch: start only after the owner says "go".
+Split agreed with the owner: **Part A** = Kafka infrastructure + order-service with outbox. **Part B** = cart-service,
+pricing-service (with a WireMock tax stub) and order-query-service on Elasticsearch.
+
+### Part B task list
+- [x] 2B.1 Compose: profiles `search` (Elasticsearch 8.19.19), `kibana` (opt-in), `tax-stub` (WireMock 3.13.2); `order-core` includes ES + stub
+- [x] 2B.2 pricing-service (8103): price/promo/coupon/tax/shipping calculator, Redis caches, Feign + circuit breaker to the tax stub
+- [x] 2B.3 cart-service (8101): Redis carts with compare-and-set, saved carts, checkout (pricing + order-service, Idempotency-Key, frozen request)
+- [x] 2B.4 order-query-service (8104): idempotent Kafka consumer, retry/backoff, dead-letter topic, Elasticsearch `orders-v1`, search API
+- [x] 2B.5 End-to-end smoke test on the real stack (`scripts/smoke-step2b.sh`)
+- [x] 2B.6 Docs: `docs/learning/step-2b-cart-pricing-query.md`, local-access, README, this file
+
+### Done and tested (Part B)
+- **End to end** (2B.5): `order-core` containers + config-server, discovery-service, order-service (+ connector), pricing, cart,
+  order-query as jars: `scripts/smoke-step2b.sh` **48/48 PASS**. Covers health, Eureka, Swagger, quote numbers (hand-computed
+  85.38 for SKU-1 x2 + SKU-2 x1 + SPRING10 in 10001), 401/403, PRC-404/422/503 pass-through, cart in Redis with 7-day TTL,
+  cart merge, other user's cart 404, checkout 201, **retry with the same key after the cart is gone returns the same order**,
+  one order row, line discounts/tax in PostgreSQL, the order in Elasticsearch (PENDING), customer finds it by id and by
+  order number, cancel flows through to Elasticsearch (CANCELLED, history), no new dead letters, no consumer lag.
+  The first runs of the script failed for reasons found on the way (see "Found while testing").
+- **pricing-service**: `mvn -pl services/pricing-service verify` -> 27 unit (PriceCalculatorTest 11 incl. 3000 random carts,
+  QuoteServiceTest 5, TaxRateServiceTest 4 incl. breaker opens after 4 failures, PricingApiTest 7) + 8 IT (PricingQuoteIT:
+  PostgreSQL seed, Redis keys and TTLs, tax cached, provider down with/without cache, 2 s read timeout, Redis paused).
+- **cart-service**: 21 unit (CartTest 3, CheckoutServiceTest 10, CartApiTest 8) + 14 IT (RedisCartStoreIT 8: CAS, TTL, 8 and 40
+  parallel writers; SavedCartIT 3 with PostgreSQL JSONB; OrderContractConsumerIT 3: real Feign client against the Stub Runner
+  stubs of order-service: happy path, 422 mismatch, 400 without key).
+- **order-query-service**: 13 unit (OrderEventProcessorTest 6, OrderQueryApiTest 7) + 13 IT with real Kafka, Schema Registry,
+  Elasticsearch, Redis (ElasticsearchOrderIndexIT 6: strict mapping, out-of-order, repeats, older status ignored, search;
+  OrderEventsKafkaIT 7: **duplicate event** delivered 3x applied once, Redis key lost then re-delivery harmless, **poison pill**
+  to the DLQ without retry, invalid event after exactly 1 attempt, **Elasticsearch paused** -> 4 attempts + backoff -> DLQ,
+  short pause -> retried and indexed, nothing dead-lettered). Ran twice in a row, both green.
+- **Full reactor** `mvn verify` (all 10 modules, run after stopping the stack so Testcontainers had memory): **231 tests, 0 failures**
+  (common-web 24, events 4, config 3, discovery 3, gateway 20, order-service 56 + 25 IT, pricing 27 + 8 IT, cart 21 + 14 IT, order-query 13 + 13 IT).
+
+### Decisions in Part B (differ from or add to the design document)
+- The tax stub answers a **rate** per ZIP + tax code (`POST /internal/v1/tax/calculate` -> `{rate}`), not a tax per line; pricing-service
+  does the multiplication and caches the rate (`tax:{zip}:{taxCode}`, 24 h).
+- pricing-service keeps its **own price table and promotions** (seeded by Flyway, mock data); catalog-sync/PIM does not exist yet.
+- Promotion rules: best automatic SKU promotion per line, then one coupon on the discounted total; free shipping from 75.00; flat 4.99.
+- Checkout **freezes the priced order request** under `checkout:{customer}:{key}` so retries are identical; the inventory pre-check
+  (design 3.1 step 4) is **not done** (inventory-service comes in step 3).
+- order-query: dead-letter topic `oms.order-query.dlq` with **text** values (not Avro); status names accepted if upper-case
+  (`[A-Z][A-Z_]{1,29}`) so new order statuses do not break the consumer; index written through alias `orders`, strict mapping.
+- Customer e-mail/phone and product titles are not in the events, so those index fields stay empty until customer-service/catalog exist.
+- Ports: cart 8101 (mgmt 18101), order 8102, pricing 8103 (18103), order-query 8104 (18104), tax stub 8190, Elasticsearch 9200, Kibana 5601.
+- Parent POM excludes Confluent's old `swagger-annotations`; order-service contract "no key" uses `customerId: cust-no-key`.
+
+### Found while testing (fixed)
+- Feign circuit breaker wraps every exception in `NoFallbackAvailableException` -> customers would have seen a generic error instead of
+  "Unknown SKU"; found by the contract IT, fixed in `CheckoutService.call` with unit tests.
+- Two contracts overlapped (a stub cannot say "header absent"); two IT classes made two Spring contexts = two Kafka consumers in one group;
+  `@AutoConfigureObservability` needed for metrics in Boot tests; duplicate swagger-annotations jars made `/v3/api-docs` 500 in order-query.
+- Environment note: the Docker VM clock lagged the host for a while (after the laptop slept) so all tokens looked expired; it resynced by itself.
+
+### Mocked (Part B)
+- **Tax provider**: WireMock container `oms-tax-stub` (fixed rates per ZIP, ZIP 99999 = outage).
+- **Product catalog and promotions**: seed rows in `oms_pricing` instead of a PIM/catalog-sync feed.
+- Everything else is real: Kafka, Schema Registry, Debezium, Elasticsearch, Redis, PostgreSQL, Keycloak.
+
+### Known gaps / follow-ups from Part B
+- **A transient Schema Registry error is treated as a permanent deserialization failure.** In the smoke run one old `oms.order.created`
+  event went to the DLQ with "Schema 1 not found" although schema 1 exists. Likely cause (not verified): the registry was still loading its
+  store right after `compose up`. The DLQ keeps the original bytes, topic, partition and offset, so it can be replayed, but there is **no replay
+  tool** and registry errors are not retried. To do: retry registry/IO errors before giving up (custom deserializer wrapper).
+- No promotion admin API (so no cache eviction on publish; `PromotionCatalog.evict()` exists but nothing calls it); promotions change via SQL + 5 min TTL.
+- Cart responses carry no prices (the BFF would call a quote); no cart-merge on login; no inventory check; no coupon on the cart itself (given at checkout).
+- cart-service's Keycloak token is the real client-credentials flow, but no automated test uses real Keycloak for it (only the smoke test does).
+- order-query: no Kafka-UI/metrics dashboard for DLQ size or lag yet (counters exist: `oms.query.events.applied/duplicate/dead_lettered/deliveries`).
+- Elasticsearch auto-create-index is not disabled on the container; the app creates the index itself before consuming.
+- JaCoCo gate (80%) and GitHub Actions/Jenkins still to do (step 8). api-gateway has no routes to cart/pricing/query yet (BFFs come in step 6).
 
 ### Part A task list
 - [x] 2A.1 Compose profiles `kafka`, `cdc`, `order-core`: Kafka 4.3.2 KRaft, Schema Registry 8.2.4, Debezium Connect 3.6.2.Final, Kafka UI v1.5.0; mem limits; Postgres `wal_level=logical`; `oms_debezium` login
@@ -63,9 +130,8 @@ Split agreed with the owner: **Part A** = Kafka infrastructure + order-service w
 Nothing external. Kafka, Schema Registry, Debezium, Keycloak, Redis, PostgreSQL are real containers.
 
 ### Known gaps / follow-ups from Part A
-- `Kafka consumers` rows of section 12 (duplicate ignored, DLQ) are not exercised yet: order-service consumes nothing.
-  They come with order-query-service (Part B).
-- Gateway has no route to order-service (by design: clients go through BFFs). The internal API is called directly on 8102.
+- (The "Kafka consumers" test rows of section 12 are now covered by order-query-service, Part B.)
+- Gateway has no route to order-service (by design: clients go through BFFs). cart-service now calls it through Eureka.
 - Replication slot growth is not monitored yet (step 8, ops): a stopped connector makes PostgreSQL keep WAL.
 - The phone mask also hides IPv4 addresses in logs (e.g. Eureka instance id) - acceptable, noted.
 - JaCoCo reports are produced; the 80% gate is still not enforced. No GitHub Actions/Jenkins pipeline yet (step 8).
@@ -109,8 +175,6 @@ Steps 2-9 of section 15.6. Known gaps from step 1:
 - Config Server and Eureka are unauthenticated (local only).
 
 ### Next step
-Step 2 **Part B** (waits for the owner's "go"): cart-service (Redis carts + PostgreSQL saved carts, checkout calls
-pricing-service and order-service via OpenFeign, consumer side of the order-service contract with Stub Runner),
-pricing-service (promotions, no tax yet, Redis cache), order-query-service (consumes `oms.order.*` into Elasticsearch
-`orders-v1`, de-duplication by event id, DLQ; adds an Elasticsearch Compose profile). Then merge `develop` -> `main`
-at the end of step 2.
+Step 3 (saga): order-orchestrator, inventory-service, payment-service + payment-gateway-adapter with Stripe test mode
+(section 15.6). It consumes `oms.order.created`, which already exists. Wait for the owner's "go". Good first tasks: add the
+inventory pre-check to cart checkout, and retry registry errors in the consumers.

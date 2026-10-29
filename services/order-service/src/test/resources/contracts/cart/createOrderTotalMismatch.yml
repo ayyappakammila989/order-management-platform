@@ -1,0 +1,34 @@
+description: |
+  The total cart-service showed the customer does not match the lines (prices changed in between).
+  cart-service must re-price and ask the customer again.
+name: create_order_total_mismatch
+request:
+  method: POST
+  url: /internal/v1/orders
+  headers:
+    Content-Type: application/json
+    Idempotency-Key: checkout-mismatch-01
+  body:
+    customerId: cust-1
+    channel: WEB
+    currency: USD
+    lines:
+      - sku: SKU-1
+        quantity: 1
+        unitPrice: 5.00
+        fulfillmentType: SHIP
+    shippingAddress:
+      name: Jane Doe
+      line1: 1 Main St
+      city: New York
+      state: NY
+      zip: "10001"
+    shippingTotal: 0.00
+    expectedGrandTotal: 4.00
+response:
+  status: 422
+  headers:
+    Content-Type: application/json
+  body:
+    status: 422
+    errorCode: ORD-422

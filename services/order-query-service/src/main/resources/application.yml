@@ -36,6 +36,7 @@ oms:
     index: orders-v1
     alias: orders                      # the application reads and writes through the alias, so a v2 index can replace v1
     schema-registry-url: http://localhost:8081
+    schema-registry-timeout: 5s        # connect/read timeout per registry call (the client default is 60 s)
     topic-pattern: 'oms\.order\.[a-z]+'     # oms.order.created, oms.order.cancelled, ... (not the DLQ, which is oms.order-query.dlq)
     dlq-topic: oms.order-query.dlq
     processed-event-ttl: 7d            # architecture 8: evt:{consumer}:{eventId}
@@ -44,6 +45,11 @@ oms:
       multiplier: 2.0
       max-interval: 10s
       max-retries: 4                   # 1 first attempt + 4 retries (waits 1 s, 2 s, 4 s, 8 s), then the dead-letter topic
+    registry-retry:                    # the Schema Registry is down or still loading: the event is fine, so wait longer
+      initial-interval: 1s
+      multiplier: 2.0
+      max-interval: 30s
+      max-retries: 8                   # waits 1+2+4+8+16+30+30+30 s = about 2 minutes, then the dead-letter topic
 
 springdoc:
   swagger-ui:

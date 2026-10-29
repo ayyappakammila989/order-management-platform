@@ -1,0 +1,8 @@
+<!-- Logging for scripts/replay-dlq.sh: only warnings from the Kafka client, so the output is the replay report. -->
+<configuration>
+  <appender name="ERR" class="ch.qos.logback.core.ConsoleAppender">
+    <target>System.err</target>
+    <encoder><pattern>%level %logger{20} - %msg%n</pattern></encoder>
+  </appender>
+  <root level="WARN"><appender-ref ref="ERR"/></root>
+</configuration>

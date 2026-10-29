@@ -51,6 +51,7 @@
   <modules>
     <module>libs/oms-common-web</module>
     <module>libs/oms-common-events</module>
+    <module>libs/oms-common-kafka</module>
     <module>services/config-server</module>
     <module>services/discovery-service</module>
     <module>services/api-gateway</module>
@@ -94,6 +95,12 @@
       <dependency>
         <groupId>com.retail.oms</groupId>
         <artifactId>oms-common-events</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.retail.oms</groupId>
+        <artifactId>oms-common-kafka</artifactId>
         <version>${project.version}</version>
       </dependency>
 

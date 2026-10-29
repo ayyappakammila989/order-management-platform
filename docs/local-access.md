@@ -88,6 +88,10 @@ Compatibility is `BACKWARD` (new schema must read data written with the previous
 **Kafka Connect REST**: `curl localhost:8083/connectors?expand=status`, connector config under
 `infra/debezium/`. Kafka Connect keeps its own state in the topics `_connect-configs`, `_connect-offsets`, `_connect-status`.
 
+**Kafka data** is in the volume `oms_kafka-data` (`KAFKA_LOG_DIRS=/var/lib/kafka/data`). Before step 3 the setting was
+missing, so Kafka wrote inside the container and every re-creation (`compose down`, image or config change) lost all
+topics, the schemas and Connect's connector config. After that fix, run `scripts/register-order-outbox-connector.sh` once again.
+
 **Elasticsearch**: no DBeaver/Compass needed. Browser or curl: `curl localhost:9200/_cat/indices?v`,
 `curl 'localhost:9200/orders/_search?pretty'` (the alias `orders` points at index `orders-v1`),
 `curl localhost:9200/orders/_doc/<orderId>?pretty`. In **Kibana** (`--profile kibana`): Management -> Dev Tools to run
@@ -226,8 +230,20 @@ are in Redis), `oms_pricing` / `oms_pricing` (tables `product_price`, `promotion
 **Elasticsearch / Kibana**: index `orders-v1` (strict mapping), alias `orders`. One document per order: `orderNumber`,
 `status`, `customer.id`, `totals`, `lines[]`, `statusHistory[]`, `createdAt`. See the "Elasticsearch" paragraph above for how to look at it.
 
-**Kafka UI**: consumer group `order-query-service` (Consumers) shows lag; the dead-letter topic is `oms.order-query.dlq`
-(readable text values; headers `kafka_dlt-original-topic/-partition/-offset` and `kafka_dlt-exception-*` say where it came from and why).
+**Kafka UI**: consumer group `order-query-service` (Consumers) shows lag; the dead-letter topic is `oms.order-query.dlq`.
+Its values are the **original bytes** (Confluent Avro, so Kafka UI shows them as binary unless you pick the SchemaRegistry
+value serde); headers `kafka_dlt-original-topic/-partition/-offset` and `kafka_dlt-exception-*` say where it came from and why.
+
+**Replaying dead letters** (`scripts/replay-dlq.sh`, needs only Kafka on localhost:9092 and a local Maven build):
+
+```bash
+scripts/replay-dlq.sh --dlq oms.order-query.dlq --list                    # partition:offset, key, original topic, reason
+scripts/replay-dlq.sh --dlq oms.order-query.dlq --offset 0:5 --dry-run    # what would be sent where
+scripts/replay-dlq.sh --dlq oms.order-query.dlq --offset 0:5              # or --key <orderId>, or --all
+```
+
+It sends the same key, bytes and headers back to `kafka_dlt-original-topic` (or `--to`), adds `oms-replayed-from`, and
+leaves the DLQ unchanged. Replaying twice is harmless (idempotent consumer). Fix the cause first (registry up, ES up).
 
 **Query API** (order-query-service, Swagger UI on 8104): `GET /api/v1/order-query/orders/{orderId}`, `GET /api/v1/order-query/orders?q=&status=&customerId=&page=&size=`.
 Customers only see their own orders; staff (agent, supervisor, ops, finance, service) see all.

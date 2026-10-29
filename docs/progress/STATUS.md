@@ -5,6 +5,45 @@ A task is only marked **done** after it was built/run and the output was checked
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done and tested
 
+## Step 3 - Saga and payments: IN PROGRESS
+
+Split agreed with the owner: **Part A** = step 2 follow-up fix, inventory-service, order-orchestrator, cart inventory
+pre-check. **Part B** (only after the owner says "go") = payment-service, payment-gateway-adapter (Camel + stripe-mock),
+fraud-service, webhooks (signature check, de-duplication), refunds, full saga run.
+
+### Part A task list
+- [x] 3A.0 Step 2 follow-up: Schema Registry errors retried with backoff (not dead-lettered), DLQ keeps original bytes, `scripts/replay-dlq.sh`
+- [ ] 3A.1 Compose/DB: `oms_inventory`, `oms_saga` databases; saga Avro contracts (commands and replies)
+- [ ] 3A.2 inventory-service: stock per location, reservations with expiry, SKIP LOCKED, optimistic locking, release, snapshot event
+- [ ] 3A.3 order-orchestrator: saga state in `oms_saga`, commands/replies over Kafka, compensation in reverse order, idempotent consumers, step log
+- [ ] 3A.4 cart-service: inventory pre-check at checkout
+- [ ] 3A.5 End-to-end run on the Compose stack; docs (learning note, local-access, README, this file)
+
+### Done and tested (Part A)
+- **3A.0 registry retry + DLQ replay** (new `libs/oms-common-kafka`, used by order-query-service):
+  - Values are consumed as bytes and decoded in the listener (`AvroEventDecoder`), which tells a registry failure
+    (RestClientException e.g. 404 "Schema N not found", connection refused, timeouts) from a poison pill (no magic
+    byte, corrupt Avro). Registry failures get their own backoff (1, 2, 4, 8, 16, 30, 30, 30 s = ~2 min) before the DLQ;
+    poison pills still go to the DLQ after one attempt. DLQ values are now always the **original bytes**.
+  - `DlqReplay` / `scripts/replay-dlq.sh`: `--list`, `--offset P:O`, `--key`, `--all`, `--dry-run`, `--to`.
+  - Tests: `AvroEventDecoderTest` 7 (mock registry 404, real closed port, corrupt bytes, ...);
+    `SchemaRegistryOutageAndReplayIT` 4 with real containers: registry paused briefly -> retried, indexed, nothing
+    dead-lettered; unknown schema id -> real registry answers `Schema 4711000 not found; error code: 40403` ->
+    6 attempts then DLQ with identical bytes; registry paused longer than all retries -> DLQ -> `DlqReplay --key` -> indexed,
+    second replay counted as duplicate; Elasticsearch outage DLQ entry -> `--list`, `--dry-run`, `--offset` -> indexed.
+    `OrderEventsKafkaIT` 7 updated (poison pill now reaches the listener once, still no retry). Module: 13 unit + 17 IT, green 3 runs.
+  - **Real run on Compose** with the jar: registry stopped while the consumer starts -> 5 failed attempts (1, 2, 4, 8 s
+    apart), registry started -> indexed 15 s later, DLQ unchanged. Registry down for > 2 min -> attempts 1..9 at
+    the schedule above -> DLQ -> registry started -> `scripts/replay-dlq.sh --list / --dry-run / --key` -> indexed;
+    replayed again -> "already handled, skipping".
+- **Found on the way (fixed)**:
+  - `docker-compose.yml`: Kafka wrote to `/tmp` inside the container (`KAFKA_LOG_DIRS` missing), so the `kafka-data`
+    volume was always empty and every container re-creation lost all topics, schemas and the Debezium connector config.
+    The step 2B DLQ record could therefore not be replayed. Fixed; a topic now survives `--force-recreate`.
+  - The listener id was used as the Kafka group id (`order-query-events`), not the configured `order-query-service`, so
+    the step 2B smoke check "consumer group has no lag" passed vacuously. Fixed (`idIsGroup = false`), and the smoke script
+    now also checks that the group exists.
+
 ## Step 2 - Order core: COMPLETE (Part A and Part B on `develop`, merged to `main` and tagged `step-2`)
 
 Split agreed with the owner: **Part A** = Kafka infrastructure + order-service with outbox. **Part B** = cart-service,
@@ -66,7 +105,7 @@ pricing-service (with a WireMock tax stub) and order-query-service on Elasticsea
 - Everything else is real: Kafka, Schema Registry, Debezium, Elasticsearch, Redis, PostgreSQL, Keycloak.
 
 ### Known gaps / follow-ups from Part B
-- **A transient Schema Registry error is treated as a permanent deserialization failure.** In the smoke run one old `oms.order.created`
+- (FIXED in 3A.0) **A transient Schema Registry error is treated as a permanent deserialization failure.** In the smoke run one old `oms.order.created`
   event went to the DLQ with "Schema 1 not found" although schema 1 exists. Likely cause (not verified): the registry was still loading its
   store right after `compose up`. The DLQ keeps the original bytes, topic, partition and offset, so it can be replayed, but there is **no replay
   tool** and registry errors are not retried. To do: retry registry/IO errors before giving up (custom deserializer wrapper).
@@ -175,6 +214,4 @@ Steps 2-9 of section 15.6. Known gaps from step 1:
 - Config Server and Eureka are unauthenticated (local only).
 
 ### Next step
-Step 3 (saga): order-orchestrator, inventory-service, payment-service + payment-gateway-adapter with Stripe test mode
-(section 15.6). It consumes `oms.order.created`, which already exists. Wait for the owner's "go". Good first tasks: add the
-inventory pre-check to cart checkout, and retry registry errors in the consumers.
+See Step 3 at the top of this file.

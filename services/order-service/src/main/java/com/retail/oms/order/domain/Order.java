@@ -61,9 +61,14 @@ public class Order {
     private Instant createdAt;
     private Instant updatedAt;
 
-    /** Optimistic locking: two concurrent status changes cannot both win. */
+    /**
+     * Optimistic locking: two concurrent status changes cannot both win.
+     * A wrapper type on purpose: the id is assigned by us (not generated), so Spring Data can only tell a new
+     * order from an existing one by a null version. With a primitive, save() would call merge() and return a
+     * copy, leaving this instance detached (no line ids, an extra SELECT).
+     */
     @Version
-    private long version;
+    private Long version;
 
     // Sets, not Lists: fetching two collections in one join returns lines x addresses rows, and a List (bag)
     // would keep the duplicates. @OrderBy keeps the lines in insertion order.

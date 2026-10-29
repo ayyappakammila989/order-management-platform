@@ -84,8 +84,8 @@ fraud-service, webhooks (signature check, de-duplication), refunds, full saga ru
   handling a reply does not cancel the order. Compensation is resent up to 3 times, then the saga is FAILED for a person.
 - **Pre-check** after pricing and before the request is frozen; inventory down/slow (1 s read timeout, 2 retries) -> allowed.
 - Ports: inventory 8105 (18105), orchestrator 8106 (18106). DLQs `oms.inventory.dlq`, `oms.order-orchestrator.dlq`.
-- Database for the saga: `oms_saga` (the design's `saga_db`); the empty `oms_orchestrator` from step 1 is left alone (not
-  dropped: deleting a database needs the owner's OK), new volumes no longer create it.
+- Database for the saga: `oms_saga` (the design's `saga_db`). The empty `oms_orchestrator` from step 1 was dropped in step 3B.0
+  (owner's OK; 0 relations checked first); new volumes never create it.
 - Snapshot input: `StockSnapshotEvent` on `oms.inventory.snapshot` (absolute on-hand per location, older than the last one = ignored),
   produced by `scripts/send-stock-snapshot.sh` until file-exchange-service exists (step 9).
 

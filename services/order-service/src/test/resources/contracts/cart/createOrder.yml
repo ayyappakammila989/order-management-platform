@@ -1,0 +1,65 @@
+description: |
+  cart-service places an order at checkout. Prices are final (from pricing-service);
+  order-service recalculates the totals and returns the new order with status PENDING.
+name: create_order
+request:
+  method: POST
+  url: /internal/v1/orders
+  headers:
+    Content-Type: application/json
+    Idempotency-Key: checkout-7f3c2a10
+  body:
+    customerId: cust-1
+    channel: WEB
+    currency: USD
+    lines:
+      - sku: SKU-1
+        quantity: 2
+        unitPrice: 19.99
+        discount: 2.00
+        tax: 3.00
+        fulfillmentType: SHIP
+    shippingAddress:
+      name: Jane Doe
+      line1: 1 Main St
+      city: New York
+      state: NY
+      zip: "10001"
+    shippingTotal: 4.99
+    expectedGrandTotal: 45.97
+  matchers:
+    headers:
+      - key: Idempotency-Key
+        regex: "[A-Za-z0-9._:-]{8,100}"
+    body:
+      - path: $.customerId
+        type: by_regex
+        value: ".+"
+response:
+  status: 201
+  headers:
+    Content-Type: application/json
+    Idempotent-Replayed: "false"
+    Location: /api/v1/orders/9f3c6a2e-5b1d-4c8e-9a7f-2e6d1c0b4a3f
+  body:
+    orderId: 9f3c6a2e-5b1d-4c8e-9a7f-2e6d1c0b4a3f
+    orderNumber: OMS-20261029-000001
+    customerId: cust-1
+    status: PENDING
+    currency: USD
+    subtotal: 39.98
+    grandTotal: 45.97
+  matchers:
+    headers:
+      - key: Location
+        regex: "/api/v1/orders/[0-9a-f-]{36}"
+    body:
+      - path: $.orderId
+        type: by_regex
+        predefined: uuid
+      - path: $.orderNumber
+        type: by_regex
+        value: "OMS-[0-9]{8}-[0-9]{6}"
+      - path: $.customerId
+        type: by_command
+        value: "assertThat(parsedJson.read(\"$.customerId\", String.class)).isNotBlank()"

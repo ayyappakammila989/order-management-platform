@@ -1,0 +1,65 @@
+server:
+  port: 8102
+
+spring:
+  application:
+    name: order-service
+  config:
+    import: optional:configserver:http://localhost:8888
+  datasource:
+    url: jdbc:postgresql://localhost:5434/oms_order
+    username: oms_order
+    password: oms_order
+    hikari:
+      maximum-pool-size: 20            # architecture 13: max 20 per pod
+      connection-timeout: 3000
+  jpa:
+    open-in-view: false                # no DB connection held while JSON is written
+    hibernate:
+      ddl-auto: validate               # Flyway owns the schema; Hibernate only checks it matches
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+  flyway:
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      # fail fast when Redis is down: the database unique key takes over (IdempotentOrderCreator)
+      timeout: 500ms
+      connect-timeout: 1s
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/oms
+          jwk-set-uri: http://localhost:8180/realms/oms/protocol/openid-connect/certs
+
+oms:
+  security:
+    audience: oms-api
+  order:
+    schema-registry-url: http://localhost:8081
+    idempotency-ttl: 24h
+    outbox-retention: 7d
+    outbox-cleanup-cron: "0 15 3 * * *"
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  server:
+    port: 18102
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true

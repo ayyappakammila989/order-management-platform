@@ -1,0 +1,34 @@
+description: |
+  Without an Idempotency-Key the order is refused, so a retry can never create a second order.
+  A stub cannot say "header absent", so this request has its own customerId; otherwise the stub would also match
+  requests of the other contracts that do carry a key.
+name: create_order_without_idempotency_key
+request:
+  method: POST
+  url: /internal/v1/orders
+  headers:
+    Content-Type: application/json
+  body:
+    customerId: cust-no-key
+    channel: WEB
+    currency: USD
+    lines:
+      - sku: SKU-1
+        quantity: 1
+        unitPrice: 5.00
+        fulfillmentType: SHIP
+    shippingAddress:
+      name: Jane Doe
+      line1: 1 Main St
+      city: New York
+      state: NY
+      zip: "10001"
+    shippingTotal: 0.00
+response:
+  status: 400
+  headers:
+    Content-Type: application/json
+  body:
+    status: 400
+    errorCode: IDM-400
+    message: Idempotency-Key header is required

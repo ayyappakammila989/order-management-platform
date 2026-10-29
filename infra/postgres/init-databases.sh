@@ -15,3 +15,6 @@ CREATE USER ${name} WITH PASSWORD '${name}';
 CREATE DATABASE ${name} OWNER ${name};
 SQL
 done
+
+# Debezium login (same SQL as create-debezium-user.sh, which does this on an existing volume)
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres -f /docker-entrypoint-initdb.d/debezium-user.sql.inc

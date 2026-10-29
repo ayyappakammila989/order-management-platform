@@ -1,0 +1,84 @@
+server:
+  port: 8101
+
+spring:
+  application:
+    name: cart-service
+  config:
+    import: optional:configserver:http://localhost:8888
+  datasource:
+    url: jdbc:postgresql://localhost:5434/oms_cart
+    username: oms_cart
+    password: oms_cart
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 3000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 500ms
+      connect-timeout: 1s
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/oms
+          jwk-set-uri: http://localhost:8180/realms/oms/protocol/openid-connect/certs
+      client:
+        # cart-service calls pricing-service and order-service as itself (client credentials, role SERVICE)
+        registration:
+          cart-service:
+            provider: keycloak
+            client-id: cart-service
+            client-secret: dev-cart-service-secret
+            authorization-grant-type: client_credentials
+        provider:
+          keycloak:
+            token-uri: http://localhost:8180/realms/oms/protocol/openid-connect/token
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+      client:
+        config:
+          default:
+            connect-timeout: 1000
+            read-timeout: 5000
+
+oms:
+  security:
+    audience: oms-api
+  cart:
+    ttl: 7d                    # architecture 8: cart:{cartId}, sliding
+    checkout-record-ttl: 24h   # how long a retry of the same checkout gets the same answer
+    max-lines: 50
+    max-quantity-per-line: 999
+    default-currency: USD
+  # pricing-service and order-service are found through Eureka by name; set a url here to bypass it
+  pricing-service:
+    url: ""
+  order-service:
+    url: ""
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  server:
+    port: 18101
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true

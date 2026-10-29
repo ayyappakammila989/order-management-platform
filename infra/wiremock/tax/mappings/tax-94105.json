@@ -1,0 +1,25 @@
+{
+  "name": "tax 94105 CA",
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "url": "/internal/v1/tax/calculate",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.zip == '94105')]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "zip": "94105",
+      "state": "CA",
+      "rate": 0.08625,
+      "source": "wiremock"
+    }
+  }
+}

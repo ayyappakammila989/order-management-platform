@@ -1,0 +1,22 @@
+{
+  "name": "tax provider down for 99999",
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "url": "/internal/v1/tax/calculate",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.zip == '99999')]"
+      }
+    ]
+  },
+  "response": {
+    "status": 503,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "error": "provider unavailable"
+    }
+  }
+}

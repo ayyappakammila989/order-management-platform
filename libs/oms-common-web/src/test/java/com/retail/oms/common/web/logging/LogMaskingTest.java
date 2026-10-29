@@ -23,6 +23,17 @@ class LogMaskingTest {
     }
 
     @Test
+    void keepsOrderNumbersAndUuidsSearchable() {
+        String text = "Order OMS-20261029-000042 event 3b1e5f20-409d-4a07-a071-d57f105894cb ref A1234567890";
+        assertThat(LogMasking.mask(text)).isEqualTo(text);
+    }
+
+    @Test
+    void stillMasksPhoneNextToPunctuation() {
+        assertThat(LogMasking.mask("phone=4155550134, alt:(415) 555-0134.")).isEqualTo("phone=***, alt:***.");
+    }
+
+    @Test
     void handlesNullAndEmpty() {
         assertThat(LogMasking.mask(null)).isNull();
         assertThat(LogMasking.mask("")).isEmpty();

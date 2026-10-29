@@ -19,8 +19,14 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done and tested
       review cases (supervisor decides -> final decision to the waiting saga), check/cancel commands over Kafka, outbox replies,
       `POST /internal/v1/fraud/check` (orders and refunds), `GET /api/v1/fraud/cases`. 17 unit (RuleEngineTest 10 edge values,
       FraudApiTest 7 roles/validation/409) + 6 IT (FraudKafkaIT, real PostgreSQL/Kafka/Schema Registry): green
-- [ ] 3B.4 payment-gateway-adapter (8108): Camel routes to stripe-mock / PayPal stub, Redis idempotency, circuit breaker + 10 s
-      time limiter, signature-checked webhooks de-duplicated by event id
+- [x] 3B.4 payment-gateway-adapter (8108): Camel routes `gateway-cmd-in` (Kafka, manual commit after the result is in Kafka),
+      `stripe-payment` / `paypal-payment` (circuit breaker per gateway + 10 s time limiter, fallback PENDING_RETRY),
+      `gateway-webhook-in` (Stripe HMAC signature with 5 min tolerance, PayPal verify API, IP allow-list, Redis de-dup by event id);
+      Redis `pay:{idempotencyKey}` (SET NX claim, final result kept 24 h and replayed). 13 unit + 11 IT (GatewayAdapterIT 9 with
+      real Kafka/Schema Registry/Redis + WireMock as both gateways: **duplicate authorize -> Stripe called once**, decline final,
+      timeout -> PENDING_RETRY + same key on retry, **breaker opens after 4 failures and stops calling**, declines do not open it,
+      capture/void/refund endpoints, poison pill -> DLQ, **Stripe webhook sent twice -> published once**, forged/old signature 400,
+      PayPal verify; StripeMockContractIT 2 against the real stripe-mock): green
 - [ ] 3B.5 payment-service (8107): authorize, capture on shipment, void, refund (agent limit $200), idempotency key UNIQUE,
       transaction history, audit trail, PENDING_RETRY
 - [ ] 3B.6 order-orchestrator: FRAUD_CHECK and AUTHORIZE_PAYMENT steps, review/pending waits, compensation void -> fraud cancel -> release
@@ -109,7 +115,19 @@ fraud-service, webhooks (signature check, de-duplication), refunds, full saga ru
 - Snapshot input: `StockSnapshotEvent` on `oms.inventory.snapshot` (absolute on-hand per location, older than the last one = ignored),
   produced by `scripts/send-stock-snapshot.sh` until file-exchange-service exists (step 9).
 
-### Found while testing (fixed)
+### Found while testing in Part B (fixed)
+- payment-gateway-adapter: Camel's default error handler **redelivered failed gateway calls inside the circuit breaker**
+  (2 HTTP calls per command, against architecture 6.4 "no automatic retry"); the gateway routes now have no error handler.
+- Apache HttpClient 5 (camel-http) **retried 503/429 by itself after 1 s** (the same trap as Feign in Part A):
+  `camel.component.http.automatic-retries-disabled=true`. Found because the breaker test counted 8 PayPal calls instead of 4.
+- Camel's circuit breaker gives the fallback neither the exception nor a reliable reason (every fallback is flagged
+  "short-circuited"), so the reason (failure / timeout / open) is written to a holder object the breaker's copy shares.
+- Stripe: `payment_method_types` is not a create parameter in the current API spec (stripe-mock answered 400 "additional
+  properties are not allowed"); replaced by `automatic_payment_methods[enabled]=true&allow_redirects=never`. stripe-mock
+  does not expand `payment_method`, so `card_last4` stays empty with the mock.
+- fraud-service: `CHAR(3)` currency failed Hibernate's schema validation (expects varchar); V1 changed before first release.
+
+### Found while testing (fixed, Part A)
 - `docker-compose.yml`: Kafka wrote to `/tmp` inside the container (`KAFKA_LOG_DIRS` missing), so the `kafka-data` volume was
   always empty: every re-creation lost all topics, the registry's `_schemas` and the Debezium connector config. Consequences seen:
   the step 2B DLQ record could not be replayed; after re-registering the connector, one old outbox event from step 2 came through with

@@ -1,0 +1,85 @@
+server:
+  port: 8108
+
+spring:
+  application:
+    name: payment-gateway-adapter
+  config:
+    import: optional:configserver:http://localhost:8888
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 1s
+      connect-timeout: 1s
+  kafka:
+    bootstrap-servers: localhost:9092   # used by Spring's KafkaAdmin to create the topics
+
+camel:
+  springboot:
+    name: payment-gateway-adapter
+    main-run-controller: true
+  component:
+    kafka:
+      brokers: ${spring.kafka.bootstrap-servers}
+      request-required-acks: all
+      enable-idempotence: true
+      max-block-ms: 5000
+      request-timeout-ms: 5000
+      delivery-timeout-ms: 10000
+    http:
+      # below the 10 s time limiter would hide slow answers from it; above it bounds the thread after a timeout
+      connect-timeout: 2000
+      connection-request-timeout: 2000
+      response-timeout: 11000
+      so-timeout: 11000
+      # HttpClient 5 would retry a 503/429 by itself after 1 s: one retry policy only (the breaker + payment-service)
+      automatic-retries-disabled: true
+
+oms:
+  gateway:
+    stripe:
+      base-url: http://localhost:12111          # stripe-mock; https://api.stripe.com for real test mode
+      api-key: ${STRIPE_API_KEY:sk_test_oms_local_mock}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_oms_local_dev_secret}
+      signature-tolerance: 5m
+      mock-mode: true                           # stripe-mock answers fixture statuses
+    paypal:
+      base-url: http://localhost:8191           # WireMock stub; https://api-m.sandbox.paypal.com for the sandbox
+      client-id: ${PAYPAL_CLIENT_ID:mock-paypal-client}
+      client-secret: ${PAYPAL_CLIENT_SECRET:mock-paypal-secret}
+      webhook-id: ${PAYPAL_WEBHOOK_ID:WH-MOCK-OMS}
+    call-timeout: 10s                           # architecture 6.4: time limiter 10 s
+    connect-timeout: 2s
+    idempotency-ttl: 24h                        # architecture 8: pay:{idempotencyKey}
+    in-progress-ttl: 60s
+    breaker:                                    # architecture 6.4 thresholds: 50% over 20 calls, open 30 s
+      failure-rate-threshold: 50
+      sliding-window-size: 20
+      minimum-calls: 20
+      open-wait: 30s
+    webhooks:
+      dedupe-ttl: 72h                           # architecture 8: evt:{consumer}:{eventId}, 3 days
+      allowed-cidrs: [127.0.0.1/32, "::1/128", 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+    topic-partitions: 3
+    dlq-topic: oms.payment-gateway-adapter.dlq
+    consumers: 3
+  kafka:
+    schema-registry-url: http://localhost:8081
+    schema-registry-timeout: 5s
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  server:
+    port: 18108
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,camelroutes
+  endpoint:
+    health:
+      probes:
+        enabled: true

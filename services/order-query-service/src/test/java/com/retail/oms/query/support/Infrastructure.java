@@ -61,5 +61,10 @@ public final class Infrastructure {
         registry.add("oms.query.retry.initial-interval", () -> "300ms");
         registry.add("oms.query.retry.multiplier", () -> "2.0");
         registry.add("oms.query.retry.max-retries", () -> "3");
+        registry.add("oms.query.schema-registry-timeout", () -> "1s");
+        registry.add("oms.query.registry-retry.initial-interval", () -> "300ms");
+        registry.add("oms.query.registry-retry.multiplier", () -> "2.0");
+        registry.add("oms.query.registry-retry.max-interval", () -> "5s");
+        registry.add("oms.query.registry-retry.max-retries", () -> "5");     // more than the 3 normal retries
     }
 }

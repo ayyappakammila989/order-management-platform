@@ -2,36 +2,26 @@ package com.retail.oms.query.infrastructure;
 
 import static com.retail.oms.query.support.Events.T0;
 import static org.assertj.core.api.Assertions.assertThat;
+import static com.retail.oms.query.support.KafkaClients.awaitDeadLetter;
+import static com.retail.oms.query.support.KafkaClients.dlqHas;
+import static com.retail.oms.query.support.KafkaClients.header;
 import static org.awaitility.Awaitility.await;
 
 import com.retail.oms.events.Topics;
+import com.retail.oms.events.order.OrderCreatedEvent;
+import com.retail.oms.events.order.OrderStatusChangedEvent;
+import com.retail.oms.kafka.AvroEventDecoder;
 import com.retail.oms.query.application.OrderDocument;
 import com.retail.oms.query.application.OrderIndex;
 import com.retail.oms.query.support.Events;
 import com.retail.oms.query.support.AbstractQueryIT;
 import com.retail.oms.query.support.Infrastructure;
-import io.confluent.kafka.serializers.KafkaAvroSerializer;
+import com.retail.oms.query.support.KafkaClients;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
 import java.util.UUID;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.NewTopic;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,95 +34,22 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  */
 class OrderEventsKafkaIT extends AbstractQueryIT {
 
-    static final String DLQ = "oms.order-query.dlq";
-
     @Autowired OrderIndex index;
     @Autowired MeterRegistry meters;
     @Autowired StringRedisTemplate redis;
-
-    static KafkaProducer<String, Object> avro;
-    static KafkaProducer<String, byte[]> raw;
+    @Autowired AvroEventDecoder decoder;
 
     @BeforeAll
     static void topics() throws Exception {
-        try (AdminClient admin = AdminClient.create(Map.of("bootstrap.servers", Infrastructure.KAFKA.getBootstrapServers()))) {
-            admin.createTopics(List.of(new NewTopic(Topics.ORDER_CREATED, 3, (short) 1),
-                    new NewTopic(Topics.ORDER_CANCELLED, 3, (short) 1),
-                    new NewTopic(Topics.ORDER_CONFIRMED, 3, (short) 1))).all().get();
-        }
-        Properties p = new Properties();
-        p.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, Infrastructure.KAFKA.getBootstrapServers());
-        p.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        p.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class);
-        p.put("schema.registry.url", Infrastructure.schemaRegistryUrl());
-        avro = new KafkaProducer<>(p);
-        Properties r = new Properties();
-        r.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, Infrastructure.KAFKA.getBootstrapServers());
-        r.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        r.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
-        raw = new KafkaProducer<>(r);
-    }
-
-    @AfterAll
-    static void close() {
-        avro.close();
-        raw.close();
+        KafkaClients.init();
     }
 
     void send(String topic, String orderId, Object event) throws Exception {
-        avro.send(new ProducerRecord<>(topic, orderId, event)).get();
+        KafkaClients.sendAvro(topic, orderId, event);
     }
 
     double count(String name) {
         return meters.counter(name).count();
-    }
-
-    /** Waits for a record with this key on the dead-letter topic. */
-    ConsumerRecord<String, byte[]> awaitDeadLetter(String key) {
-        Properties c = new Properties();
-        c.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, Infrastructure.KAFKA.getBootstrapServers());
-        c.put(ConsumerConfig.GROUP_ID_CONFIG, "dlq-reader-" + UUID.randomUUID());
-        c.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        c.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        c.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
-        try (KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(c)) {
-            consumer.subscribe(List.of(DLQ));
-            List<ConsumerRecord<String, byte[]>> found = new ArrayList<>();
-            await().atMost(Duration.ofSeconds(60)).until(() -> {
-                consumer.poll(Duration.ofMillis(500)).forEach(rec -> {
-                    if (key.equals(rec.key())) {
-                        found.add(rec);
-                    }
-                });
-                return !found.isEmpty();
-            });
-            return found.get(0);
-        }
-    }
-
-    static String header(ConsumerRecord<?, ?> rec, String name) {
-        var h = rec.headers().lastHeader(name);
-        return h == null ? null : new String(h.value(), StandardCharsets.UTF_8);
-    }
-
-    boolean dlqHas(String key) {
-        Properties c = new Properties();
-        c.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, Infrastructure.KAFKA.getBootstrapServers());
-        c.put(ConsumerConfig.GROUP_ID_CONFIG, "dlq-check-" + UUID.randomUUID());
-        c.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        c.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        c.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
-        try (KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(c)) {
-            consumer.subscribe(List.of(DLQ));
-            for (int i = 0; i < 6; i++) {
-                for (var rec : consumer.poll(Duration.ofMillis(500))) {
-                    if (key.equals(rec.key())) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
     }
 
     @Test
@@ -194,14 +111,16 @@ class OrderEventsKafkaIT extends AbstractQueryIT {
     void poisonPillGoesStraightToTheDeadLetterTopicWithoutBlockingTheNextEvent() throws Exception {
         String poisonKey = UUID.randomUUID().toString();
         double deliveries = count("oms.query.events.deliveries");
-        raw.send(new ProducerRecord<>(Topics.ORDER_CREATED, poisonKey, "this is not avro".getBytes(StandardCharsets.UTF_8))).get();
+        double registryErrors = count("oms.query.events.registry_errors");
+        KafkaClients.sendRaw(Topics.ORDER_CREATED, poisonKey, "this is not avro".getBytes(StandardCharsets.UTF_8));
 
         ConsumerRecord<String, byte[]> dead = awaitDeadLetter(poisonKey);
 
         assertThat(new String(dead.value(), StandardCharsets.UTF_8)).isEqualTo("this is not avro");   // forwarded untouched
         assertThat(header(dead, "kafka_dlt-original-topic")).isEqualTo(Topics.ORDER_CREATED);
-        assertThat(header(dead, "kafka_dlt-exception-fqcn")).contains("DeserializationException");
-        assertThat(count("oms.query.events.deliveries")).isEqualTo(deliveries);     // never reached the listener: no retries
+        assertThat(header(dead, "kafka_dlt-exception-cause-fqcn")).contains("PoisonPillException");
+        assertThat(count("oms.query.events.deliveries") - deliveries).isEqualTo(1);   // one attempt, no retries
+        assertThat(count("oms.query.events.registry_errors")).isEqualTo(registryErrors);   // not mistaken for an outage
 
         String id = UUID.randomUUID().toString();
         send(Topics.ORDER_CREATED, id, Events.created(id, "cust-1", T0));            // the partition is not stuck
@@ -217,7 +136,8 @@ class OrderEventsKafkaIT extends AbstractQueryIT {
         ConsumerRecord<String, byte[]> dead = awaitDeadLetter(id);
 
         assertThat(header(dead, "kafka_dlt-exception-cause-fqcn")).contains("InvalidEventException");   // the root cause
-        assertThat(new String(dead.value(), StandardCharsets.UTF_8)).contains(id);       // readable JSON of the event
+        assertThat(decoder.decode(Topics.ORDER_CANCELLED, dead.headers(), dead.value()))   // the original Avro bytes
+                .isInstanceOf(OrderStatusChangedEvent.class);
         assertThat(count("oms.query.events.deliveries") - deliveries).isEqualTo(1);      // one attempt, no retries
         assertThat(index.find(id)).isEmpty();
     }
@@ -241,7 +161,8 @@ class OrderEventsKafkaIT extends AbstractQueryIT {
             assertThat(count("oms.query.events.dead_lettered") - dead).isEqualTo(1);
             assertThat(header(record, "kafka_dlt-original-topic")).isEqualTo(Topics.ORDER_CREATED);
             assertThat(header(record, "kafka_dlt-original-offset")).isNotNull();
-            assertThat(new String(record.value(), StandardCharsets.UTF_8)).contains(id);
+            var original = (OrderCreatedEvent) decoder.decode(Topics.ORDER_CREATED, record.headers(), record.value());
+            assertThat(original.getOrderId()).isEqualTo(id);     // the DLQ holds the original Avro bytes: replayable
         } finally {
             es.getDockerClient().unpauseContainerCmd(es.getContainerId()).exec();
         }

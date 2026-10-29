@@ -102,7 +102,10 @@ check "customer cancels -> CANCELLED"     CANCELLED "$(curl -s -H "Authorization
 wait_for "Elasticsearch shows CANCELLED"  "curl -s $ES/orders/_doc/$ORDER_ID | json \"['_source']['status']\"" CANCELLED
 check "status history has CANCELLED and PENDING" "CANCELLED,PENDING" "$(curl -s $ES/orders/_doc/$ORDER_ID | python3 -c "import sys,json; print(','.join(sorted(h['to'] for h in json.load(sys.stdin)['_source']['statusHistory'])))")"
 check "nothing new in the dead-letter topic" "$DLQ_BEFORE" "$(dlq_count)"
-check "consumer group has no lag"         0 "$(docker exec oms-kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:29092 --describe --group order-query-service 2>/dev/null | awk 'NR>1 && $6 ~ /^[0-9]+$/ {s+=$6} END{print s+0}')"
+GROUP_OUT="$(docker exec oms-kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:29092 --describe --group order-query-service 2>/dev/null)"
+# (until the step 3 follow-up the listener id was used as group id, so this group did not exist and "no lag" passed vacuously)
+check "consumer group order-query-service reads oms.order.created" yes "$(echo "$GROUP_OUT" | grep -q ' oms.order.created ' && echo yes || echo no)"
+check "consumer group has no lag"         0 "$(echo "$GROUP_OUT" | awk 'NR>1 && $6 ~ /^[0-9]+$/ {s+=$6} END{print s+0}')"
 
 echo
 [ $fail -eq 0 ] && echo "ALL CHECKS PASSED" || echo "SOME CHECKS FAILED"

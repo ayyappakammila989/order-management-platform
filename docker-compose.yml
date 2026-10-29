@@ -112,6 +112,9 @@ services:
       # topics are created on purpose (by Debezium's topic.creation settings or scripts), so a typo fails loudly
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+      # the image's default is /tmp/kraft-combined-logs inside the container: without this the volume stays empty and
+      # all topics (and Kafka Connect's stored connector config) vanish whenever the container is re-created
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
     ports:
       - "9092:9092"
     volumes:

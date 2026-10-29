@@ -68,6 +68,10 @@
       <groupId>com.retail.oms</groupId>
       <artifactId>oms-common-events</artifactId>
     </dependency>
+    <dependency>
+      <groupId>com.retail.oms</groupId>
+      <artifactId>oms-common-kafka</artifactId>
+    </dependency>
 
     <!-- Tests -->
     <dependency>
@@ -100,7 +104,6 @@
       <artifactId>awaitility</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- consumer side of the order-service contract: runs the stubs jar order-service publishes -->
   </dependencies>
 
   <build>

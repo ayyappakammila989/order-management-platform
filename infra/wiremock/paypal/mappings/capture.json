@@ -1,0 +1,25 @@
+{
+  "name": "capture an authorization",
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/v2/payments/authorizations/[A-Za-z0-9_-]+/capture",
+    "headers": {
+      "Authorization": {
+        "equalTo": "Bearer A21-mock-access-token"
+      },
+      "PayPal-Request-Id": {
+        "matches": ".+"
+      }
+    }
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "transformers": [
+      "response-template"
+    ],
+    "body": "{\"id\": \"CAP-{{randomValue length=12 type='ALPHANUMERIC' uppercase=true}}\", \"status\": \"COMPLETED\", \"amount\": {\"currency_code\": \"{{jsonPath request.body '$.amount.currency_code'}}\", \"value\": \"{{jsonPath request.body '$.amount.value'}}\"}, \"final_capture\": \"{{jsonPath request.body '$.final_capture'}}\"}"
+  }
+}

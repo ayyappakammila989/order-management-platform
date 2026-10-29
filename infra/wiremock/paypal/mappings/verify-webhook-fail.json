@@ -1,0 +1,17 @@
+{
+  "name": "webhook signature verification: FAILURE otherwise",
+  "priority": 5,
+  "request": {
+    "method": "POST",
+    "url": "/v1/notifications/verify-webhook-signature"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "verification_status": "FAILURE"
+    }
+  }
+}

@@ -12,6 +12,7 @@ docker compose --profile cdc up -d         # Kafka + Schema Registry + Kafka Con
 docker compose --profile search up -d      # Elasticsearch only
 docker compose --profile kibana up -d      # Kibana (+ Elasticsearch); optional, not part of order-core
 docker compose --profile tax-stub up -d    # WireMock standing in for tax-service
+docker compose --profile payments up -d    # stripe-mock + PayPal WireMock stub (payment-gateway-adapter)
 docker compose --profile order-core up -d  # everything steps 2 and 3A need (foundation + kafka + cdc + Elasticsearch + tax stub)
 docker compose --profile order-core down   # stop (keeps data); `down -v` deletes data
 ```
@@ -37,6 +38,8 @@ of `order-core` to keep Testcontainers runs possible. Stop the stack before a fu
 | `oms-elasticsearch` (8.19.19, single node, security off) | search, kibana, order-core | **9200** | http://localhost:9200 | none (local only) |
 | `oms-kibana` (8.19.19) | kibana | **5601** | http://localhost:5601 | none (local only) |
 | `oms-tax-stub` (WireMock 3.13.2, **mock of tax-service**) | tax-stub, order-core | **8190** | http://localhost:8190/__admin/mappings | none |
+| `oms-stripe-mock` (stripe/stripe-mock v0.206.0, **mock of Stripe**) | payments, order-core | **12111** | http://localhost:12111/v1/payment_methods/pm_card_visa | header `Authorization: Bearer sk_test_123` (any `sk_test_...`) |
+| `oms-paypal-stub` (WireMock 3.13.2, **mock of PayPal REST**) | payments, order-core | **8191** | http://localhost:8191/__admin/mappings, requests seen: http://localhost:8191/__admin/requests | OAuth client `mock-paypal-client` / `mock-paypal-secret` |
 
 Host ports 5432 and 5433 are used by other PostgreSQL instances, so Docker Postgres is on 5434.
 Host 8080 is kept free for api-gateway, hence Keycloak on 8180.
@@ -48,7 +51,7 @@ Name and password are both `oms_<service>`; the superuser is `postgres` / `postg
 |---|---|
 | `oms_keycloak` | Keycloak |
 | `oms_cart`, `oms_order`, `oms_pricing` | step 2 |
-| `oms_saga` (order-orchestrator, the design's `saga_db`), `oms_inventory` (inventory-service), `oms_payment` (part B) | step 3 |
+| `oms_saga` (order-orchestrator, the design's `saga_db`), `oms_inventory` (inventory-service), `oms_payment` (payment-service), `oms_fraud` (fraud-service) | step 3 |
 
 Add another one to a running container: `infra/postgres/create-service-db.sh <service>`.
 
@@ -312,3 +315,24 @@ Consumer groups in Kafka UI: `inventory-service`, `order-orchestrator`.
 
 **Outboxes**: inventory-service and order-orchestrator do not use Debezium; a polling relay inside each service sends
 `outbox_event` rows every 200 ms (`select count(*) from outbox_event where published_at is null;` should be 0).
+
+## Payment gateway mocks (step 3B)
+
+**stripe-mock** (http://localhost:12111) is Stripe's official mock: it checks every request against Stripe's OpenAPI
+spec and answers fixture objects. It is **stateless**: amount and currency are echoed, but `status` is always the
+fixture value, the same `Idempotency-Key` does not return the same object, it never declines and never sends webhooks.
+Try it: `curl -H 'Authorization: Bearer sk_test_123' localhost:12111/v1/payment_intents -d amount=500 -d currency=usd`.
+
+**PayPal stub** (http://localhost:8191, mappings in `infra/wiremock/paypal/mappings`): OAuth2 token, Orders v2 authorize
+(`/v2/checkout/orders/{id}/authorize`), capture / void / refund, and webhook signature verification. The method token
+at checkout is a PayPal order id that the buyer already approved on the client (that part is not mocked). Special ids:
+
+| Order id (method token) | Answer |
+|---|---|
+| anything else, e.g. `PAYPAL-ORDER-1` | 201, authorization `AUTH-...` created |
+| `PAYPAL-DECLINE...` | 422 `INSTRUMENT_DECLINED` |
+| `PAYPAL-SLOW...` | 201 after 15 s (longer than the adapter's 10 s time limiter) |
+| `PAYPAL-DOWN...` | 503 |
+
+Webhook verification answers `SUCCESS` only for `transmission_sig = mock-valid-signature` and `webhook_id = WH-MOCK-OMS`.
+Refunds answer `PENDING`; the `PAYMENT.CAPTURE.REFUNDED` webhook completes them.

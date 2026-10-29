@@ -1,0 +1,30 @@
+{
+  "name": "webhook signature verification: SUCCESS for the mock signature",
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "url": "/v1/notifications/verify-webhook-signature",
+    "headers": {
+      "Authorization": {
+        "equalTo": "Bearer A21-mock-access-token"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.transmission_sig == 'mock-valid-signature')]"
+      },
+      {
+        "matchesJsonPath": "$[?(@.webhook_id == 'WH-MOCK-OMS')]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "verification_status": "SUCCESS"
+    }
+  }
+}

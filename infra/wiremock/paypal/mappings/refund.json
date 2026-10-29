@@ -1,0 +1,25 @@
+{
+  "name": "refund a capture (PENDING; completed by the PAYMENT.CAPTURE.REFUNDED webhook)",
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/v2/payments/captures/[A-Za-z0-9_-]+/refund",
+    "headers": {
+      "Authorization": {
+        "equalTo": "Bearer A21-mock-access-token"
+      },
+      "PayPal-Request-Id": {
+        "matches": ".+"
+      }
+    }
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "transformers": [
+      "response-template"
+    ],
+    "body": "{\"id\": \"REF-{{randomValue length=12 type='ALPHANUMERIC' uppercase=true}}\", \"status\": \"PENDING\", \"amount\": {\"currency_code\": \"{{jsonPath request.body '$.amount.currency_code'}}\", \"value\": \"{{jsonPath request.body '$.amount.value'}}\"}}"
+  }
+}

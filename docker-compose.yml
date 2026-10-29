@@ -9,13 +9,15 @@
 #   docker compose --profile search up -d     # Elasticsearch only (order-query-service)
 #   docker compose --profile kibana up -d     # Kibana (+ Elasticsearch); optional, to look at the index
 #   docker compose --profile tax-stub up -d   # WireMock standing in for tax-service (pricing-service)
-#   docker compose --profile order-core up -d  # everything step 2 needs (foundation + kafka + cdc + search + tax stub)
+#   docker compose --profile payments up -d   # stripe-mock + PayPal WireMock stub (payment-gateway-adapter)
+#   docker compose --profile order-core up -d  # everything steps 2-3 need (foundation + kafka + cdc + search + stubs)
 # Stop:  docker compose --profile <name> down      (add -v to delete data - ask first)
 #
 # Memory budget (Docker Desktop has 8 GB): every container has mem_limit and every JVM a capped heap.
 #   postgres 384m + redis 128m + keycloak 1g                                   = foundation ~1.5 GB
 #   kafka 1g + schema-registry 512m + kafka-connect 1g + kafka-ui 512m         = +3 GB
-#   elasticsearch 1280m + wiremock 256m                                        = +1.5 GB (order-core ~6 GB of limits)
+#   elasticsearch 1280m + wiremock 256m                                        = +1.5 GB
+#   stripe-mock 128m + paypal wiremock 256m                                    = +0.4 GB (order-core ~6.4 GB of limits)
 #   kibana 1g only with the kibana profile (not in order-core): start it when you want to browse the index.
 name: oms
 
@@ -249,6 +251,41 @@ services:
       - "8190:8080"
     volumes:
       - ./infra/wiremock/tax:/home/wiremock:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/__admin/mappings >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 256m
+
+  # --- step 3B: payment gateways (mocks) ---
+  # Stands in for Stripe (test mode): the official stripe-mock, stateless. It validates requests against Stripe's
+  # OpenAPI spec and answers fixture objects (amount/currency echoed, status fixed), so it never declines and never
+  # sends webhooks; payment-gateway-adapter is configured for that (oms.gateway.stripe.mock-mode).
+  stripe-mock:
+    image: stripe/stripe-mock:v0.206.0
+    container_name: oms-stripe-mock
+    profiles: [payments, order-core]
+    ports:
+      - "12111:12111"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null --header 'Authorization: Bearer sk_test_123' http://localhost:12111/v1/payment_methods/pm_card_visa"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 128m
+
+  # Stands in for PayPal REST (OAuth2, Orders v2 authorize, capture/void/refund, webhook signature verification).
+  # Order ids starting with PAYPAL-DECLINE / PAYPAL-SLOW / PAYPAL-DOWN give a decline, a 15 s answer and a 503.
+  paypal-stub:
+    image: wiremock/wiremock:3.13.2
+    container_name: oms-paypal-stub
+    profiles: [payments, order-core]
+    command: ["--disable-gzip", "--verbose"]
+    ports:
+      - "8191:8080"
+    volumes:
+      - ./infra/wiremock/paypal:/home/wiremock:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -fs http://localhost:8080/__admin/mappings >/dev/null"]
       interval: 10s

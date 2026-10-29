@@ -62,6 +62,7 @@
     <module>services/inventory-service</module>
     <module>services/order-orchestrator</module>
     <module>services/fraud-service</module>
+    <module>services/payment-gateway-adapter</module>
   </modules>
 
   <dependencyManagement>

@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "OrderStatusChangedEvent",
+  "namespace": "com.retail.oms.events.order",
+  "doc": "Published to oms.order.<new status in lower case> (oms.order.confirmed, oms.order.cancelled ...). Key = orderId.",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "orderId", "type": "string"},
+    {"name": "orderNumber", "type": "string"},
+    {"name": "customerId", "type": "string"},
+    {"name": "fromStatus", "type": "string"},
+    {"name": "toStatus", "type": "string"},
+    {"name": "reason", "type": ["null", "string"], "default": null},
+    {"name": "changedBy", "type": "string", "doc": "user id, or the client id of the calling service"}
+  ]
+}

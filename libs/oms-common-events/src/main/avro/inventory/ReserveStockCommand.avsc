@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "ReserveStockCommand",
+  "namespace": "com.retail.oms.events.inventory",
+  "doc": "Sent by order-orchestrator to oms.inventory.reserve-cmd. Key = orderId. Reply: oms.inventory.reserved or oms.inventory.reserve-failed.",
+  "fields": [
+    {"name": "commandId", "type": "string", "doc": "UUID; inventory-service handles each command id once"},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "sagaId", "type": "string"},
+    {"name": "orderId", "type": "string"},
+    {"name": "shipToZip", "type": ["null", "string"], "default": null, "doc": "used to prefer nearby locations"},
+    {"name": "lines", "type": {"type": "array", "items": "com.retail.oms.events.inventory.SkuQuantity"}}
+  ]
+}

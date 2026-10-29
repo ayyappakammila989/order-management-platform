@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "StockReleasedEvent",
+  "namespace": "com.retail.oms.events.inventory",
+  "doc": "On oms.inventory.released: a reservation was released (saga compensation, order cancelled, expired), or a release command found nothing to release (reservationId null). Key = orderId.",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "commandId", "type": ["null", "string"], "default": null, "doc": "set when this answers a ReleaseStockCommand"},
+    {"name": "sagaId", "type": ["null", "string"], "default": null},
+    {"name": "orderId", "type": "string"},
+    {"name": "reservationId", "type": ["null", "string"], "default": null},
+    {"name": "reason", "type": "string", "doc": "COMPENSATION, ORDER_CANCELLED, EXPIRED, MANUAL, NOTHING_TO_RELEASE"},
+    {"name": "lines", "type": {"type": "array", "items": "com.retail.oms.events.inventory.LocationQuantity"}}
+  ]
+}

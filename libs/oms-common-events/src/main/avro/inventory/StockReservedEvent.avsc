@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "StockReservedEvent",
+  "namespace": "com.retail.oms.events.inventory",
+  "doc": "Reply on oms.inventory.reserved: all lines are reserved. Key = orderId.",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "commandId", "type": "string", "doc": "the ReserveStockCommand this answers"},
+    {"name": "sagaId", "type": "string"},
+    {"name": "orderId", "type": "string"},
+    {"name": "reservationId", "type": "string"},
+    {"name": "expiresAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "lines", "type": {"type": "array", "items": "com.retail.oms.events.inventory.LocationQuantity"}}
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "InventoryChangedEvent",
+  "namespace": "com.retail.oms.events.inventory",
+  "doc": "On oms.inventory.changed after every change of one stock row (reserve, release, snapshot). Key = sku. Used to refresh availability caches.",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "sku", "type": "string"},
+    {"name": "locationId", "type": "string"},
+    {"name": "onHand", "type": "int"},
+    {"name": "reserved", "type": "int"},
+    {"name": "safetyStock", "type": "int"},
+    {"name": "available", "type": "int", "doc": "onHand - reserved - safetyStock, can be negative after a snapshot"},
+    {"name": "cause", "type": "string", "doc": "RESERVED, RELEASED, SNAPSHOT"}
+  ]
+}

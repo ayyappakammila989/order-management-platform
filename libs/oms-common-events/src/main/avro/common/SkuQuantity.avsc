@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "SkuQuantity",
+  "namespace": "com.retail.oms.events.inventory",
+  "doc": "A quantity of one SKU, location not chosen yet (what the order asks for).",
+  "fields": [
+    {"name": "sku", "type": "string"},
+    {"name": "quantity", "type": "int"}
+  ]
+}

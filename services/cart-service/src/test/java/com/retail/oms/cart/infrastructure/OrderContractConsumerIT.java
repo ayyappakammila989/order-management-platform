@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.retail.oms.cart.application.CartService;
 import com.retail.oms.cart.application.CheckoutService;
 import com.retail.oms.cart.domain.Cart;
+import com.retail.oms.cart.infrastructure.client.InventoryClient;
 import com.retail.oms.cart.infrastructure.client.OrderClient;
 import com.retail.oms.cart.infrastructure.client.OrderClient.OrderRequest;
 import com.retail.oms.cart.infrastructure.client.PricingClient;
@@ -41,6 +42,13 @@ class OrderContractConsumerIT {
     @Autowired CartService carts;
     @Autowired OrderClient orderClient;
     @MockitoBean PricingClient pricing;
+    @MockitoBean InventoryClient inventory;      // not under test here; plenty of stock
+
+    @org.junit.jupiter.api.BeforeEach
+    void plentyOfStock() {
+        when(inventory.availability(any(), any())).thenAnswer(inv -> new InventoryClient.Availability(inv.getArgument(0),
+                inv.getArgument(1), 999));
+    }
 
     @Test
     void checkoutRequestMatchesTheContractAndTheOrderComesBack() {

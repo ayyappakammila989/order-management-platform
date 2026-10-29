@@ -3,7 +3,9 @@ package com.retail.oms.cart.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -11,7 +13,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.retail.oms.cart.application.CheckoutRecordStore.CheckoutRecord;
+import com.retail.oms.cart.config.InventoryCheckProperties;
 import com.retail.oms.cart.domain.Cart;
+import com.retail.oms.cart.infrastructure.client.InventoryClient;
 import com.retail.oms.cart.infrastructure.client.OrderClient;
 import com.retail.oms.cart.infrastructure.client.OrderClient.OrderRequest;
 import com.retail.oms.cart.infrastructure.client.OrderClient.OrderSummary;
@@ -19,7 +23,9 @@ import com.retail.oms.cart.infrastructure.client.PricingClient;
 import com.retail.oms.common.web.OmsException;
 import feign.FeignException;
 import feign.Request;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -46,13 +52,18 @@ class CheckoutServiceTest {
     @Mock CartService carts;
     @Mock PricingClient pricing;
     @Mock OrderClient orders;
+    @Mock InventoryClient inventory;
+    SimpleMeterRegistry meters = new SimpleMeterRegistry();
     InMemoryRecords records = new InMemoryRecords();
     CheckoutService service;
     Cart cart;
 
     @BeforeEach
     void setUp() {
-        service = new CheckoutService(carts, pricing, orders, records);
+        var preCheck = new InventoryPreCheck(inventory, new InventoryCheckProperties(true, 2, Duration.ofMillis(1)), meters);
+        service = new CheckoutService(carts, pricing, orders, records, preCheck);
+        lenient().when(inventory.availability(anyString(), any()))
+                .thenAnswer(inv -> new InventoryClient.Availability(inv.getArgument(0), inv.getArgument(1), 999));
         cart = Cart.empty("cust-1", "USD", Instant.parse("2026-10-29T10:00:00Z")).addItem("SKU-1", 2, Instant.now());
     }
 
@@ -133,7 +144,7 @@ class CheckoutServiceTest {
 
         assertThat(result.replayed()).isTrue();
         assertThat(result.order().orderId()).isEqualTo(order().orderId());
-        verifyNoInteractions(pricing, orders, carts);      // the cart is already gone; that must not matter
+        verifyNoInteractions(pricing, orders, carts, inventory);   // the cart is already gone; that must not matter
     }
 
     @Test
@@ -145,10 +156,55 @@ class CheckoutServiceTest {
 
         CheckoutService.Result result = service.checkout(command());
 
-        verifyNoInteractions(pricing);
+        verifyNoInteractions(pricing, inventory);          // the frozen request passed the pre-check before
         verify(orders).create(KEY, frozen);
         assertThat(result.replayed()).isTrue();      // order-service said it had seen the key
         verify(carts).delete(cart.cartId());
+    }
+
+    @Test
+    void notEnoughStockStopsCheckoutBeforeTheRequestIsFrozen() {
+        when(carts.get(cart.cartId(), "cust-1")).thenReturn(cart);
+        when(pricing.quote(any())).thenReturn(quote("45.97"));
+        when(inventory.availability("SKU-1", "10001")).thenReturn(new InventoryClient.Availability("SKU-1", "10001", 1));
+
+        assertThatThrownBy(() -> service.checkout(command()))
+                .isInstanceOfSatisfying(OmsException.class, e -> {
+                    assertThat(e.getErrorCode()).isEqualTo("CRT-409");
+                    assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(e.getMessage()).isEqualTo("Not enough stock: SKU-1 (requested 2, available 1)");
+                });
+        verifyNoInteractions(orders);
+        assertThat(records.map).isEmpty();      // nothing frozen: after changing the cart the same key works
+        verify(carts, never()).delete(any());
+        assertThat(meters.counter("oms.cart.inventory_check.rejected").count()).isEqualTo(1);
+    }
+
+    @Test
+    void everySkuIsCheckedAndOnlyTheShortOneIsNamed() {
+        Cart two = cart.addItem("SKU-5", 3, Instant.now());
+        when(carts.get(two.cartId(), "cust-1")).thenReturn(two);
+        when(pricing.quote(any())).thenReturn(quote("45.97"));
+        when(inventory.availability("SKU-5", "10001")).thenReturn(new InventoryClient.Availability("SKU-5", "10001", 2));
+
+        assertThatThrownBy(() -> service.checkout(new CheckoutService.Command(two.cartId(), "cust-1", KEY, "WEB", null, ADDRESS)))
+                .hasMessage("Not enough stock: SKU-5 (requested 3, available 2)");
+        verify(inventory).availability("SKU-1", "10001");
+    }
+
+    @Test
+    void inventoryNotAnsweringIsRetriedTwiceAndThenCheckoutGoesOn() {
+        when(carts.get(cart.cartId(), "cust-1")).thenReturn(cart);
+        when(pricing.quote(any())).thenReturn(quote("45.97"));
+        when(inventory.availability("SKU-1", "10001")).thenThrow(new NoFallbackAvailableException("down",
+                new RuntimeException("Connection refused")));
+        when(orders.create(eq(KEY), any())).thenReturn(ResponseEntity.status(201).body(order()));
+
+        CheckoutService.Result result = service.checkout(command());
+
+        assertThat(result.order().orderNumber()).isEqualTo("OMS-20261029-000001");   // the saga re-checks the stock
+        verify(inventory, times(3)).availability("SKU-1", "10001");                   // 1 + 2 retries
+        assertThat(meters.counter("oms.cart.inventory_check.skipped").count()).isEqualTo(1);
     }
 
     @Test

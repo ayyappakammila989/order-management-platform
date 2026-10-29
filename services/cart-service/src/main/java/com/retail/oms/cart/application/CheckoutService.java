@@ -19,8 +19,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 /**
- * Architecture 3.1 steps 3 and 5: price the cart with pricing-service, then create the order in order-service with
- * the client's Idempotency-Key. (Step 4, the inventory pre-check, comes with inventory-service in step 3.)
+ * Architecture 3.1 steps 3-5: price the cart with pricing-service, check availability with inventory-service, then
+ * create the order in order-service with the client's Idempotency-Key.
  */
 @Service
 @RequiredArgsConstructor
@@ -38,6 +38,7 @@ public class CheckoutService {
     private final PricingClient pricing;
     private final OrderClient orders;
     private final CheckoutRecordStore records;
+    private final InventoryPreCheck inventory;
 
     public Result checkout(Command cmd) {
         Optional<CheckoutRecord> previous = records.find(cmd.customerId(), cmd.idempotencyKey());
@@ -50,6 +51,8 @@ public class CheckoutService {
             throw new CartRuleException("The cart is empty");
         }
         OrderRequest request = priced(cmd, cart);
+        // before the request is frozen: a retry with the same key must not skip the check and place the order anyway
+        inventory.check(cart, cmd.shippingAddress().zip());
         if (!records.saveRequest(cmd.customerId(), cmd.idempotencyKey(), cmd.cartId(), request)) {
             // another request with this key got in between: join it
             return resume(cmd, records.find(cmd.customerId(), cmd.idempotencyKey()).orElseThrow());

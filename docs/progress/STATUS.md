@@ -15,7 +15,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done and tested
 - [x] 3B.2 Compose profile `payments` (also in `order-core`): stripe-mock v0.206.0 (12111), PayPal WireMock stub (8191);
       `oms_fraud` database (init script + created on the existing volume). Every PayPal mapping called by hand (token, authorize,
       422 decline, 503, 15 s slow, capture, void, refund PENDING, verify SUCCESS/FAILURE); stripe-mock probed (stateless, see local-access)
-- [ ] 3B.3 fraud-service (8109): rules, checks, review cases, Kafka check/cancel commands
+- [x] 3B.3 fraud-service (8109): 9 rules in `fraud_rule` (parameters in the DB, logic in `RuleEngine`), block list, checks,
+      review cases (supervisor decides -> final decision to the waiting saga), check/cancel commands over Kafka, outbox replies,
+      `POST /internal/v1/fraud/check` (orders and refunds), `GET /api/v1/fraud/cases`. 17 unit (RuleEngineTest 10 edge values,
+      FraudApiTest 7 roles/validation/409) + 6 IT (FraudKafkaIT, real PostgreSQL/Kafka/Schema Registry): green
 - [ ] 3B.4 payment-gateway-adapter (8108): Camel routes to stripe-mock / PayPal stub, Redis idempotency, circuit breaker + 10 s
       time limiter, signature-checked webhooks de-duplicated by event id
 - [ ] 3B.5 payment-service (8107): authorize, capture on shipment, void, refund (agent limit $200), idempotency key UNIQUE,

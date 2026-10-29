@@ -1,0 +1,95 @@
+server:
+  port: 8105
+
+spring:
+  application:
+    name: inventory-service
+  config:
+    import: optional:configserver:http://localhost:8888
+  datasource:
+    # socketTimeout (s): a database that stops answering fails the query instead of hanging the Kafka consumer forever
+    url: jdbc:postgresql://localhost:5434/oms_inventory?socketTimeout=30
+    username: oms_inventory
+    password: oms_inventory
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 3000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 500ms            # Redis only caches availability here; when it is down we read the database
+      connect-timeout: 1s
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: inventory-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        # fail fast when the broker is away; the outbox relay simply tries again on its next run
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/oms
+          jwk-set-uri: http://localhost:8180/realms/oms/protocol/openid-connect/certs
+
+oms:
+  security:
+    audience: oms-api
+  inventory:
+    reservation-ttl: 30m        # an ACTIVE reservation of an order that never got confirmed is released after this
+    expiry-interval: 30s        # how often the expiry job looks for them
+    expiry-batch-size: 50
+    lock-timeout: 2s            # second pass of a reservation waits this long for rows another order has locked
+    availability-cache-ttl: 30s # architecture 8: atp:{sku}:{zip}
+    dlq-topic: oms.inventory.dlq
+    topic-partitions: 3
+  kafka:
+    schema-registry-url: http://localhost:8081
+    schema-registry-timeout: 5s
+    listener-concurrency: 3
+    retry:                      # e.g. database down: 1 s, 2 s, 4 s, 8 s, then the dead-letter topic
+      initial-interval: 1s
+      multiplier: 2.0
+      max-interval: 10s
+      max-retries: 4
+    registry-retry:             # Schema Registry down or still loading: about 2 minutes
+      initial-interval: 1s
+      multiplier: 2.0
+      max-interval: 30s
+      max-retries: 8
+  outbox:
+    poll-interval: 200ms
+    batch-size: 100
+    send-timeout: 5s
+    retention: 7d
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  server:
+    port: 18105
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true

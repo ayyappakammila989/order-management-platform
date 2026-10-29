@@ -30,9 +30,18 @@ mvn -DskipTests package
 scripts/smoke-step1.sh                            # 22 end-to-end checks
 ```
 
+## What works today (step 2 part A - order core)
+order-service with the **transactional outbox**: an order and its event are written in one PostgreSQL transaction,
+Debezium streams the event from the WAL to Kafka (`oms.order.created`, `oms.order.cancelled`, ...) as Avro with
+the Schema Registry. Orders are created idempotently (`Idempotency-Key`, Redis + unique DB key), secured with
+Keycloak tokens and role/owner rules. Kafka (KRaft), Schema Registry, Kafka Connect/Debezium and Kafka UI run as
+Compose profiles. See [`docs/learning/step-2a-order-outbox.md`](docs/learning/step-2a-order-outbox.md) and the
+"Step 2A" section of [`docs/local-access.md`](docs/local-access.md) to run it (`scripts/smoke-step2a.sh`, 32 checks).
+cart-service, pricing-service and order-query-service (step 2 part B) are not built yet.
+
 ## Layout
-`libs/oms-common-*` shared code - `services/<name>` independent Spring Boot apps - `config-repo/` served by the Config Server -
-`infra/` container setup (PostgreSQL init, Keycloak realm) - `docs/` design, progress, learning notes.
+`libs/oms-common-*` shared code (`-web`: errors, logging, JWT helpers; `-events`: Avro event contracts) - `services/<name>` independent Spring Boot apps - `config-repo/` served by the Config Server -
+`infra/` container setup (PostgreSQL init, Keycloak realm, Debezium connector) - `docs/` design, progress, learning notes.
 
 ## More
 - Progress and next step: [`docs/progress/STATUS.md`](docs/progress/STATUS.md)

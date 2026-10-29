@@ -112,6 +112,7 @@ Service token: `-d "client_id=order-service&client_secret=dev-order-service-secr
 | config-server | 8888 | 18888 | http://localhost:8888/{app}/{profile} |
 | discovery-service | 8761 | 18761 | http://localhost:8761 (Eureka dashboard) |
 | api-gateway | 8080 | 18080 | http://localhost:8080 |
+| order-service | 8102 | 18102 | http://localhost:8102/swagger-ui.html (Swagger UI), `/v3/api-docs` |
 
 Start order: containers (`--profile foundation`), then config-server, discovery-service, api-gateway.
 Check everything with `scripts/smoke-step1.sh` (22 checks; the rate-limit check needs ~60 s between runs).
@@ -119,3 +120,41 @@ Config Server serving from GitHub instead of the local folder: `SPRING_PROFILES_
 Run each with `mvn -pl services/<name> spring-boot:run` or `java -jar services/<name>/target/<name>-0.1.0-SNAPSHOT.jar`
 (from the service's own folder for config-server, which finds `config-repo/` by relative path).
 
+
+## Step 2A: order-service and the outbox
+
+```bash
+docker compose --profile order-core up -d
+mvn -DskipTests install
+(cd services/config-server     && java -jar target/config-server-0.1.0-SNAPSHOT.jar &)
+(cd services/discovery-service && java -jar target/discovery-service-0.1.0-SNAPSHOT.jar &)
+(cd services/order-service     && java -jar target/order-service-0.1.0-SNAPSHOT.jar &)   # Flyway creates the schema
+scripts/register-order-outbox-connector.sh     # once per Kafka Connect volume; safe to repeat
+scripts/smoke-step2a.sh                        # 32 end-to-end checks
+```
+
+The connector must exist before orders are written that should be published (snapshot mode `no_data`).
+
+**Swagger UI**: http://localhost:8102/swagger-ui.html -> "Authorize" -> paste an access token (no `Bearer ` prefix).
+`/internal/**` needs a service token (role SERVICE):
+```bash
+curl -s -d "client_id=cart-service&client_secret=dev-cart-service-secret&grant_type=client_credentials" \
+  http://localhost:8180/realms/oms/protocol/openid-connect/token | jq -r .access_token
+```
+`POST /internal/v1/orders` needs an `Idempotency-Key` header (8-100 characters).
+api-gateway has no route to order-service: it is reached by the BFFs and cart-service (Part B), so call it directly on 8102.
+
+**Database** (DBeaver): `oms_order` / `oms_order` on `localhost:5434`, database `oms_order`. Tables `orders`,
+`order_lines`, `order_addresses`, `order_status_history`, `outbox_event` (payload is binary Avro; read events in Kafka UI).
+Replication slot: `select * from pg_replication_slots;` as `postgres` (slot `oms_order_outbox`; `active=false` means
+Kafka Connect is down and PostgreSQL is keeping WAL for it).
+
+**Redis** (Redis Insight): idempotency keys `idem:http:<Idempotency-Key>`, TTL 24 h, value `DONE|<hash>|<orderId>`.
+
+**Kafka topics** (Kafka UI -> Topics): `oms.order.created`, `oms.order.cancelled`, `oms.order.confirmed` (and other
+`oms.order.<status>`), 3 partitions, key = order id, headers `id`, `eventType`, `aggregateType`, `correlationId`.
+Schema subjects: `oms.order.created-value`, `oms.order.<status>-value`.
+
+**Kafka Connect**: connector `order-outbox` (Kafka UI -> Kafka Connect -> debezium), or
+`curl localhost:8083/connectors/order-outbox/status`. Restart a failed task:
+`curl -X POST localhost:8083/connectors/order-outbox/tasks/0/restart`.

@@ -5,6 +5,71 @@ A task is only marked **done** after it was built/run and the output was checked
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done and tested
 
+## Step 2 - Order core: IN PROGRESS (Part A done, Part B not started)
+
+Split agreed with the owner: **Part A** = Kafka infrastructure + order-service with outbox (done, on `develop`).
+**Part B** = cart-service, pricing-service (no tax), order-query-service on Elasticsearch: start only after the owner says "go".
+
+### Part A task list
+- [x] 2A.1 Compose profiles `kafka`, `cdc`, `order-core`: Kafka 4.3.2 KRaft, Schema Registry 8.2.4, Debezium Connect 3.6.2.Final, Kafka UI v1.5.0; mem limits; Postgres `wal_level=logical`; `oms_debezium` login
+- [x] 2A.2 `libs/oms-common-events`: Avro schemas (OrderCreatedEvent, OrderStatusChangedEvent, Money), Topics, EventHeaders
+- [x] 2A.3 order-service persistence: Flyway V1, entities, repositories
+- [x] 2A.4 Use cases + OutboxWriter (Avro in the same transaction), mapper, exceptions
+- [x] 2A.5 REST API, JWT security (shared helpers in oms-common-web), Idempotency-Key (Redis + unique column), MapStruct, springdoc
+- [x] 2A.6 Debezium outbox connector (`infra/debezium/order-outbox-connector.json`) + registration script
+- [x] (fix) oms-common-web log masking no longer masks order numbers/UUIDs
+- [x] 2A.7 Security IT with real Keycloak; Spring Cloud Contract (producer) for cart-service
+- [x] 2A.8 End-to-end smoke test on the Compose stack (`scripts/smoke-step2a.sh`)
+- [x] 2A.9 Docs: `docs/learning/step-2a-order-outbox.md`, local-access, README, this file
+
+### Done and tested (Part A)
+- **End to end** (2A.8): `order-core` containers + config-server + discovery-service + order-service jars + connector:
+  `scripts/smoke-step2a.sh` **32/32 PASS** (health, Swagger, Eureka registration, Flyway, connector RUNNING, idempotent
+  create incl. replay header / 422 different body / 400 no key / Redis TTL / one DB row, 401/403 with real Keycloak tokens,
+  cancel + repeat no-op, history + outbox rows, exactly one `oms.order.created` and one `oms.order.cancelled` event decoded
+  via Schema Registry, key + correlationId header, subjects, 3 partitions, Kafka UI). First run was 31/32: Eureka's
+  30 s response cache hid the new instance; the check now waits.
+  **Outage test (manual):** Kafka Connect stopped -> order still created (201), slot inactive with WAL retained ->
+  Connect started -> event in Kafka exactly once ~18 s later.
+- **order-service tests**: `mvn -pl services/order-service verify` -> **56 unit/slice + 25 integration, all pass**:
+  OrderServiceTest 10, OrderTest 15, OrderEventMapperTest 1, OutboxWriterTest 2, IdempotentOrderCreatorTest 6,
+  OrderApiTest 19 (@WebMvcTest, real SecurityConfig), contract CartTest 3; OrderRepositoryIT 9 (one SELECT for details,
+  EXPLAIN shows indexes, optimistic lock, publication), OrderOutboxTransactionIT 4 (commit/rollback together, MANDATORY),
+  RedisIdempotencyStoreIT 4 (SETNX, 24 h TTL, 1 of 20 parallel wins), OutboxDebeziumIT 3 (real Debezium + Kafka +
+  Schema Registry: once per order despite 3 identical requests, headers, cancel topic, subjects), KeycloakSecurityIT 5
+  (real tokens; no/tampered/forged-with-unknown-key token -> 401). KeycloakSecurityIT first passed alone, then failed in
+  a full run with "HTTPS required" (realm sslRequired=external + Docker Desktop client address); it now imports a
+  test-only realm copy with sslRequired=none.
+- **Libraries**: oms-common-web 24 tests (adds OmsJwt/ApiErrorSecurityHandlers tests, masking tests); oms-common-events 4.
+- **Compose** (2A.1): all 7 `order-core` containers healthy; Kafka produce/consume, KRaft quorum, Schema Registry BACKWARD,
+  Debezium Postgres plugin present, Kafka UI cluster ONLINE with Connect + Schema Registry; fresh-volume init checked on a
+  throwaway container. Memory: ~2.2 GB idle, ~2.5 GB under the smoke test (limits sum to 4.5 GB).
+- Full reactor `mvn install` green: 135 tests (common-web 24, events 4, config 3, discovery 3, gateway 20, order-service 56 + 25 IT).
+
+### Decisions in Part A (differ from or add to the design document)
+- `outbox_event.payload` is **BYTEA with Avro in Confluent wire format**, not JSONB: keeps the `.avsc` as the only contract
+  (JSONB would mean schema-less JSON or Debezium-inferred Avro with float money). Debezium copies bytes (`ByteArrayConverter`).
+- Extra columns: `orders.idempotency_key` (UNIQUE, second idempotency guard), `orders.discount_total`, `outbox_event.correlation_id`.
+- Order statuses for now: PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED (fulfillment/returns steps may add more).
+- Status events use one schema `OrderStatusChangedEvent` on topics `oms.order.<status>`; events carry only the ship-to ZIP, not the address.
+- Idempotency replay returns the **same order** (current state), not a byte copy of the first response.
+- Client libs: Confluent serializer **7.9.9** + Avro 1.11.5 (Kafka 3.9 line = Boot 3.5's kafka-clients 3.9.2), talking to
+  the 8.2.4 registry. testcontainers-keycloak 3.9.1 (last on Testcontainers 1.x). Debezium's testcontainers helper needs
+  Testcontainers 2.x, so the IT uses plain `GenericContainer`s.
+- No Debezium heartbeat (its STRUCT records crash the byte-array converter); every write to `oms_order` includes an outbox insert.
+- Ports: order-service 8102 (mgmt 18102). Planned for Part B: cart 8101, pricing 8103, order-query 8104.
+
+### Mocked (Part A)
+Nothing external. Kafka, Schema Registry, Debezium, Keycloak, Redis, PostgreSQL are real containers.
+
+### Known gaps / follow-ups from Part A
+- `Kafka consumers` rows of section 12 (duplicate ignored, DLQ) are not exercised yet: order-service consumes nothing.
+  They come with order-query-service (Part B).
+- Gateway has no route to order-service (by design: clients go through BFFs). The internal API is called directly on 8102.
+- Replication slot growth is not monitored yet (step 8, ops): a stopped connector makes PostgreSQL keep WAL.
+- The phone mask also hides IPv4 addresses in logs (e.g. Eureka instance id) - acceptable, noted.
+- JaCoCo reports are produced; the 80% gate is still not enforced. No GitHub Actions/Jenkins pipeline yet (step 8).
+
 ## Step 1 - Foundation: COMPLETE (merged to `main`)
 
 Goal: config-server, discovery-service, api-gateway, Keycloak, one shared template with error handling and logging.
@@ -44,5 +109,8 @@ Steps 2-9 of section 15.6. Known gaps from step 1:
 - Config Server and Eureka are unauthenticated (local only).
 
 ### Next step
-Step 2 - Order core (cart-service, order-service with outbox, pricing-service without tax, order-query-service on Elasticsearch).
-Needs Kafka (KRaft) + Schema Registry + Debezium/Kafka Connect, Elasticsearch, Kafka UI as new Compose profiles. Ask before installing anything global.
+Step 2 **Part B** (waits for the owner's "go"): cart-service (Redis carts + PostgreSQL saved carts, checkout calls
+pricing-service and order-service via OpenFeign, consumer side of the order-service contract with Stub Runner),
+pricing-service (promotions, no tax yet, Redis cache), order-query-service (consumes `oms.order.*` into Elasticsearch
+`orders-v1`, de-duplication by event id, DLQ; adds an Elasticsearch Compose profile). Then merge `develop` -> `main`
+at the end of step 2.

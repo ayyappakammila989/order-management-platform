@@ -29,6 +29,9 @@ spring:
     redis:
       host: localhost
       port: 6379
+      # fail fast when Redis is down: the database unique key takes over (IdempotentOrderCreator)
+      timeout: 500ms
+      connect-timeout: 1s
   security:
     oauth2:
       resourceserver:

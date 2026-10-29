@@ -5,16 +5,16 @@ import java.util.List;
 import org.slf4j.MDC;
 
 /** Builds {@link ApiError}s for the advice classes. */
-final class ApiErrorFactory {
+public final class ApiErrorFactory {
 
     private ApiErrorFactory() {
     }
 
-    static ApiError build(String path, int status, String errorCode, String message) {
+    public static ApiError build(String path, int status, String errorCode, String message) {
         return build(path, status, errorCode, message, List.of());
     }
 
-    static ApiError build(String path, int status, String errorCode, String message,
+    public static ApiError build(String path, int status, String errorCode, String message,
                           List<ApiError.FieldError> fieldErrors) {
         return new ApiError(Instant.now(), status, errorCode, message, path, traceId(), fieldErrors);
     }

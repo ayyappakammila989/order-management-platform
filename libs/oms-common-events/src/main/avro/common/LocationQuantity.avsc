@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "LocationQuantity",
+  "namespace": "com.retail.oms.events.inventory",
+  "doc": "A quantity of one SKU at one location (DC or store), e.g. one line of a reservation.",
+  "fields": [
+    {"name": "sku", "type": "string"},
+    {"name": "locationId", "type": "string"},
+    {"name": "quantity", "type": "int"}
+  ]
+}

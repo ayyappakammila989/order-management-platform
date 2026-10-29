@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "StockSnapshotEvent",
+  "namespace": "com.retail.oms.events.inventory",
+  "doc": "On oms.inventory.snapshot: absolute on-hand counts for one location (warehouse SFTP file or store POS; for now sent by a Kafka test producer). Key = locationId.",
+  "fields": [
+    {"name": "snapshotId", "type": "string", "doc": "UUID; a snapshot is applied once"},
+    {"name": "takenAt", "type": {"type": "long", "logicalType": "timestamp-millis"}, "doc": "an older snapshot than the last applied one for the location is ignored"},
+    {"name": "locationId", "type": "string"},
+    {"name": "source", "type": "string", "doc": "SFTP or POS"},
+    {"name": "items", "type": {"type": "array", "items": {
+      "type": "record",
+      "name": "StockLevel",
+      "fields": [
+        {"name": "sku", "type": "string"},
+        {"name": "onHand", "type": "int"}
+      ]
+    }}}
+  ]
+}

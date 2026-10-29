@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "name": "StockReserveFailedEvent",
+  "namespace": "com.retail.oms.events.inventory",
+  "doc": "Reply on oms.inventory.reserve-failed: not enough stock for at least one line; nothing was reserved. Key = orderId.",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "commandId", "type": "string"},
+    {"name": "sagaId", "type": "string"},
+    {"name": "orderId", "type": "string"},
+    {"name": "reason", "type": "string"},
+    {"name": "shortages", "type": {"type": "array", "items": {
+      "type": "record",
+      "name": "StockShortage",
+      "fields": [
+        {"name": "sku", "type": "string"},
+        {"name": "requested", "type": "int"},
+        {"name": "available", "type": "int"}
+      ]
+    }}}
+  ]
+}

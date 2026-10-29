@@ -5,7 +5,7 @@
 # For services added later on an existing volume, run: infra/postgres/create-service-db.sh <name>
 set -euo pipefail
 
-SERVICES="keycloak cart order pricing orchestrator inventory payment"
+SERVICES="keycloak cart order pricing saga inventory payment"
 
 for svc in $SERVICES; do
   name="oms_${svc}"

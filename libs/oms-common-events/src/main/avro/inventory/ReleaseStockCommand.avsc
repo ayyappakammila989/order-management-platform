@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "ReleaseStockCommand",
+  "namespace": "com.retail.oms.events.inventory",
+  "doc": "Compensation sent by order-orchestrator to oms.inventory.release-cmd. Key = orderId. Reply: oms.inventory.released (also when there was nothing to release).",
+  "fields": [
+    {"name": "commandId", "type": "string"},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "sagaId", "type": "string"},
+    {"name": "orderId", "type": "string"},
+    {"name": "reason", "type": "string"}
+  ]
+}

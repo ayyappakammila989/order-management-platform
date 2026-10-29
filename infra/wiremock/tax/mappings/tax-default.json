@@ -1,0 +1,20 @@
+{
+  "name": "tax default 7%",
+  "priority": 10,
+  "request": {
+    "method": "POST",
+    "url": "/internal/v1/tax/calculate"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "zip": "unknown",
+      "state": "??",
+      "rate": 0.07,
+      "source": "wiremock-default"
+    }
+  }
+}

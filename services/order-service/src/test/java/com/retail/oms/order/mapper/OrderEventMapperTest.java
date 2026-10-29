@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.retail.oms.events.order.OrderCreatedEvent;
 import com.retail.oms.order.domain.Order;
+import com.retail.oms.order.domain.PaymentGateway;
+import com.retail.oms.order.domain.PaymentMethod;
 import com.retail.oms.order.support.TestOrders;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -32,5 +34,17 @@ class OrderEventMapperTest {
         assertThat(event.getLines()).extracting(l -> l.getLineId() + ":" + l.getSku() + " x" + l.getQuantity() + " @" + l.getUnitPrice())
                 .containsExactly("1:SKU-1 x2 @19.99", "2:SKU-2 x1 @5.00");
         assertThat(event.toString()).doesNotContain("Jane Doe", "Main St");
+        assertThat(event.getPaymentMethod()).isNull();
+    }
+
+    @Test
+    void createdEventCarriesThePaymentToken() {
+        Order order = TestOrders.withLineIds(TestOrders.order("cust-1"));
+        order.usePaymentMethod(new PaymentMethod(PaymentGateway.PAYPAL, "PAYPAL-ORDER-42"));
+
+        OrderCreatedEvent event = mapper.toCreatedEvent(UUID.randomUUID(), order);
+
+        assertThat(event.getPaymentMethod().getGateway()).isEqualTo("PAYPAL");
+        assertThat(event.getPaymentMethod().getMethodToken()).isEqualTo("PAYPAL-ORDER-42");
     }
 }

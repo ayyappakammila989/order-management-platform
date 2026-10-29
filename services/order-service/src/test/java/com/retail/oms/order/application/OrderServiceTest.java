@@ -186,6 +186,6 @@ class OrderServiceTest {
                                 new BigDecimal("3.00"), FulfillmentType.SHIP),
                         new Order.NewLine("SKU-2", 1, new BigDecimal("5.00"), BigDecimal.ZERO,
                                 new BigDecimal("0.40"), FulfillmentType.SHIP)),
-                List.of(TestOrders.address(AddressType.SHIP)), new BigDecimal("4.99"), expectedGrandTotal);
+                List.of(TestOrders.address(AddressType.SHIP)), new BigDecimal("4.99"), expectedGrandTotal, null);
     }
 }

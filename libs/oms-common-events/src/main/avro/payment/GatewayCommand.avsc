@@ -1,0 +1,89 @@
+{
+  "type": "record",
+  "name": "GatewayCommand",
+  "namespace": "com.retail.oms.events.payment",
+  "doc": "payment-service -> payment-gateway-adapter on oms.payment.gateway-cmd (architecture 5, routes stripe-payment / paypal-payment). Key = orderId. Reply: oms.payment.gateway-result.",
+  "fields": [
+    {
+      "name": "requestId",
+      "type": "string",
+      "doc": "payment_transaction id; the result carries it back"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "idempotencyKey",
+      "type": "string",
+      "doc": "sent to the gateway as Idempotency-Key / PayPal-Request-Id; also pay:{key} in Redis"
+    },
+    {
+      "name": "operation",
+      "type": "string",
+      "doc": "AUTHORIZE, CAPTURE, VOID or REFUND"
+    },
+    {
+      "name": "gateway",
+      "type": "string",
+      "doc": "STRIPE or PAYPAL"
+    },
+    {
+      "name": "paymentId",
+      "type": "string"
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "amount",
+      "type": "com.retail.oms.events.common.Money"
+    },
+    {
+      "name": "currency",
+      "type": "string"
+    },
+    {
+      "name": "methodToken",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "AUTHORIZE only"
+    },
+    {
+      "name": "gatewayRef",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "payment intent / PayPal authorization id (CAPTURE, VOID, REFUND)"
+    },
+    {
+      "name": "captureRef",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "PayPal capture id (REFUND)"
+    },
+    {
+      "name": "finalCapture",
+      "type": "boolean",
+      "default": true,
+      "doc": "CAPTURE: last capture, the rest of the authorization is released"
+    },
+    {
+      "name": "attempt",
+      "type": "int",
+      "default": 1
+    }
+  ]
+}

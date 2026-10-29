@@ -1,0 +1,50 @@
+{
+  "type": "record",
+  "name": "ShipmentShippedEvent",
+  "namespace": "com.retail.oms.events.shipment",
+  "doc": "oms.shipment.shipped (architecture 3.4 step 5): lines of an order left the warehouse/store. Produced by integration-logistics in step 4; by scripts/send-shipment-shipped.sh until then. Key = orderId.",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "shipmentId",
+      "type": "string"
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "carrier",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "trackingNumber",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "lines",
+      "type": {
+        "type": "array",
+        "items": "com.retail.oms.events.inventory.SkuQuantity"
+      }
+    }
+  ]
+}

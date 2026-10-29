@@ -48,6 +48,7 @@ class CheckoutServiceTest {
 
     static final String KEY = "checkout-7f3c2a10";
     static final OrderRequest.Address ADDRESS = new OrderRequest.Address("Jane Doe", "1 Main St", "New York", "NY", "10001");
+    static final OrderRequest.PaymentMethod CARD = new OrderRequest.PaymentMethod("STRIPE", "pm_card_visa");
 
     @Mock CartService carts;
     @Mock PricingClient pricing;
@@ -68,7 +69,7 @@ class CheckoutServiceTest {
     }
 
     CheckoutService.Command command() {
-        return new CheckoutService.Command(cart.cartId(), "cust-1", KEY, "WEB", "SPRING10", ADDRESS);
+        return new CheckoutService.Command(cart.cartId(), "cust-1", KEY, "WEB", "SPRING10", ADDRESS, CARD);
     }
 
     PricingClient.Quote quote(String grand) {
@@ -105,6 +106,7 @@ class CheckoutServiceTest {
         assertThat(sent.customerId()).isEqualTo("cust-1");
         assertThat(sent.expectedGrandTotal()).isEqualByComparingTo("45.97");
         assertThat(sent.shippingTotal()).isEqualByComparingTo("4.99");
+        assertThat(sent.paymentMethod()).isEqualTo(CARD);
         assertThat(sent.lines()).singleElement().satisfies(l -> {
             assertThat(l.discount()).isEqualByComparingTo("2.00");
             assertThat(l.tax()).isEqualByComparingTo("3.00");
@@ -119,7 +121,7 @@ class CheckoutServiceTest {
         Cart empty = Cart.empty("cust-1", "USD", Instant.now());
         when(carts.get(empty.cartId(), "cust-1")).thenReturn(empty);
 
-        assertThatThrownBy(() -> service.checkout(new CheckoutService.Command(empty.cartId(), "cust-1", KEY, "WEB", null, ADDRESS)))
+        assertThatThrownBy(() -> service.checkout(new CheckoutService.Command(empty.cartId(), "cust-1", KEY, "WEB", null, ADDRESS, CARD)))
                 .isInstanceOf(OmsException.class).hasMessage("The cart is empty");
         verifyNoInteractions(pricing, orders);
     }
@@ -149,7 +151,7 @@ class CheckoutServiceTest {
 
     @Test
     void retryAfterAnInterruptedAttemptReusesTheFrozenRequestEvenIfPricesMoved() {
-        OrderRequest frozen = new OrderRequest("cust-1", "WEB", "USD", List.of(), ADDRESS, new BigDecimal("4.99"), new BigDecimal("45.97"));
+        OrderRequest frozen = new OrderRequest("cust-1", "WEB", "USD", List.of(), ADDRESS, new BigDecimal("4.99"), new BigDecimal("45.97"), CARD);
         records.map.put("cust-1:" + KEY, new CheckoutRecord(cart.cartId(), frozen, null));
         when(orders.create(eq(KEY), any())).thenReturn(ResponseEntity.status(201)
                 .header(OrderClient.REPLAYED, "true").body(order()));
@@ -187,7 +189,7 @@ class CheckoutServiceTest {
         when(pricing.quote(any())).thenReturn(quote("45.97"));
         when(inventory.availability("SKU-5", "10001")).thenReturn(new InventoryClient.Availability("SKU-5", "10001", 2));
 
-        assertThatThrownBy(() -> service.checkout(new CheckoutService.Command(two.cartId(), "cust-1", KEY, "WEB", null, ADDRESS)))
+        assertThatThrownBy(() -> service.checkout(new CheckoutService.Command(two.cartId(), "cust-1", KEY, "WEB", null, ADDRESS, CARD)))
                 .hasMessage("Not enough stock: SKU-5 (requested 3, available 2)");
         verify(inventory).availability("SKU-1", "10001");
     }

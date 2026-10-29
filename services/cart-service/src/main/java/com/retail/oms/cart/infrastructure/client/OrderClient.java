@@ -22,7 +22,11 @@ public interface OrderClient {
 
     /** Same shape as order-service's CreateOrderRequest. Discount and tax are line totals. */
     record OrderRequest(String customerId, String channel, String currency, List<Line> lines, Address shippingAddress,
-                        BigDecimal shippingTotal, BigDecimal expectedGrandTotal) {
+                        BigDecimal shippingTotal, BigDecimal expectedGrandTotal, PaymentMethod paymentMethod) {
+
+        /** Gateway token only (Stripe pm_..., PayPal order id); card data never reaches the platform. */
+        public record PaymentMethod(String gateway, String methodToken) {
+        }
 
         public record Line(String sku, int quantity, BigDecimal unitPrice, BigDecimal discount, BigDecimal tax,
                            String fulfillmentType) {

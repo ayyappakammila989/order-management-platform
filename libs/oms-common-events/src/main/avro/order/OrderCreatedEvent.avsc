@@ -4,33 +4,122 @@
   "namespace": "com.retail.oms.events.order",
   "doc": "Published to oms.order.created when order-service saves a new order (status PENDING). Key = orderId.",
   "fields": [
-    {"name": "eventId", "type": "string", "doc": "UUID of the outbox row; consumers de-duplicate on it"},
-    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
-    {"name": "orderId", "type": "string"},
-    {"name": "orderNumber", "type": "string"},
-    {"name": "customerId", "type": "string"},
-    {"name": "channel", "type": "string", "doc": "WEB, MOBILE, STORE, CALL_CENTER"},
-    {"name": "status", "type": "string"},
-    {"name": "currency", "type": "string", "doc": "ISO 4217, e.g. USD"},
-    {"name": "subtotal", "type": "com.retail.oms.events.common.Money"},
-    {"name": "discountTotal", "type": "com.retail.oms.events.common.Money"},
-    {"name": "taxTotal", "type": "com.retail.oms.events.common.Money"},
-    {"name": "shippingTotal", "type": "com.retail.oms.events.common.Money"},
-    {"name": "grandTotal", "type": "com.retail.oms.events.common.Money"},
-    {"name": "lines", "type": {"type": "array", "items": {
-      "type": "record",
-      "name": "OrderLine",
-      "fields": [
-        {"name": "lineId", "type": "long"},
-        {"name": "sku", "type": "string"},
-        {"name": "quantity", "type": "int"},
-        {"name": "unitPrice", "type": "com.retail.oms.events.common.Money"},
-        {"name": "discount", "type": "com.retail.oms.events.common.Money"},
-        {"name": "tax", "type": "com.retail.oms.events.common.Money"},
-        {"name": "fulfillmentType", "type": "string", "doc": "SHIP, BOPIS, SFS"}
-      ]
-    }}},
-    {"name": "shipToZip", "type": ["null", "string"], "default": null,
-     "doc": "Only the ZIP, not the full address (no personal data in events beyond what consumers need)"}
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "UUID of the outbox row; consumers de-duplicate on it"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "orderNumber",
+      "type": "string"
+    },
+    {
+      "name": "customerId",
+      "type": "string"
+    },
+    {
+      "name": "channel",
+      "type": "string",
+      "doc": "WEB, MOBILE, STORE, CALL_CENTER"
+    },
+    {
+      "name": "status",
+      "type": "string"
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "doc": "ISO 4217, e.g. USD"
+    },
+    {
+      "name": "subtotal",
+      "type": "com.retail.oms.events.common.Money"
+    },
+    {
+      "name": "discountTotal",
+      "type": "com.retail.oms.events.common.Money"
+    },
+    {
+      "name": "taxTotal",
+      "type": "com.retail.oms.events.common.Money"
+    },
+    {
+      "name": "shippingTotal",
+      "type": "com.retail.oms.events.common.Money"
+    },
+    {
+      "name": "grandTotal",
+      "type": "com.retail.oms.events.common.Money"
+    },
+    {
+      "name": "lines",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "OrderLine",
+          "fields": [
+            {
+              "name": "lineId",
+              "type": "long"
+            },
+            {
+              "name": "sku",
+              "type": "string"
+            },
+            {
+              "name": "quantity",
+              "type": "int"
+            },
+            {
+              "name": "unitPrice",
+              "type": "com.retail.oms.events.common.Money"
+            },
+            {
+              "name": "discount",
+              "type": "com.retail.oms.events.common.Money"
+            },
+            {
+              "name": "tax",
+              "type": "com.retail.oms.events.common.Money"
+            },
+            {
+              "name": "fulfillmentType",
+              "type": "string",
+              "doc": "SHIP, BOPIS, SFS"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "shipToZip",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "Only the ZIP, not the full address (no personal data in events beyond what consumers need)"
+    },
+    {
+      "name": "paymentMethod",
+      "type": [
+        "null",
+        "com.retail.oms.events.common.PaymentMethod"
+      ],
+      "default": null,
+      "doc": "null for orders placed without one (they fail at the saga's payment step); added in step 3B"
+    }
   ]
 }

@@ -1,0 +1,71 @@
+{
+  "type": "record",
+  "name": "FraudCheckCommand",
+  "namespace": "com.retail.oms.events.fraud",
+  "doc": "Sent by order-orchestrator to oms.fraud.check-cmd. Key = orderId. Reply: oms.fraud.approved, oms.fraud.review or oms.fraud.rejected.",
+  "fields": [
+    {
+      "name": "commandId",
+      "type": "string",
+      "doc": "UUID; fraud-service handles each command id once"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "sagaId",
+      "type": "string"
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "orderNumber",
+      "type": "string"
+    },
+    {
+      "name": "customerId",
+      "type": "string"
+    },
+    {
+      "name": "channel",
+      "type": "string"
+    },
+    {
+      "name": "currency",
+      "type": "string"
+    },
+    {
+      "name": "grandTotal",
+      "type": "com.retail.oms.events.common.Money"
+    },
+    {
+      "name": "shipToZip",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "paymentGateway",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "lines",
+      "type": {
+        "type": "array",
+        "items": "com.retail.oms.events.inventory.SkuQuantity"
+      }
+    }
+  ]
+}

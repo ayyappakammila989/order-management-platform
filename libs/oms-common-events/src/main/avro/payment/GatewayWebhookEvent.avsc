@@ -1,0 +1,69 @@
+{
+  "type": "record",
+  "name": "GatewayWebhookEvent",
+  "namespace": "com.retail.oms.events.payment",
+  "doc": "A verified, de-duplicated gateway webhook on oms.payment.gateway-event (route gateway-webhook-in). Key = gateway event id.",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "the GATEWAY's event id (evt_... / WH-...)"
+    },
+    {
+      "name": "receivedAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "gateway",
+      "type": "string"
+    },
+    {
+      "name": "type",
+      "type": "string",
+      "doc": "e.g. refund.updated, PAYMENT.CAPTURE.REFUNDED"
+    },
+    {
+      "name": "objectId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "id of the object the event is about (refund, payment intent, capture)"
+    },
+    {
+      "name": "objectStatus",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "paymentRef",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "payment intent / authorization id the object belongs to"
+    },
+    {
+      "name": "amountMinor",
+      "type": [
+        "null",
+        "long"
+      ],
+      "default": null,
+      "doc": "amount in minor units (cents) when the event has one"
+    },
+    {
+      "name": "payload",
+      "type": "string",
+      "doc": "raw JSON body (max 16 KB)"
+    }
+  ]
+}

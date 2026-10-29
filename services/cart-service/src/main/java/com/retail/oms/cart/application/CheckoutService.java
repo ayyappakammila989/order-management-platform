@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
 public class CheckoutService {
 
     public record Command(String cartId, String customerId, String idempotencyKey, String channel, String couponCode,
-                          OrderRequest.Address shippingAddress) {
+                          OrderRequest.Address shippingAddress, OrderRequest.PaymentMethod paymentMethod) {
     }
 
     public record Result(OrderSummary order, boolean replayed) {
@@ -82,7 +82,7 @@ public class CheckoutService {
         List<OrderRequest.Line> lines = quote.lines().stream().map(l -> new OrderRequest.Line(l.sku(), l.quantity(),
                 l.unitPrice(), l.discount(), l.tax(), "SHIP")).toList();
         return new OrderRequest(cmd.customerId(), cmd.channel(), quote.currency(), lines, cmd.shippingAddress(),
-                quote.shippingTotal(), quote.grandTotal());
+                quote.shippingTotal(), quote.grandTotal(), cmd.paymentMethod());
     }
 
     private Result place(Command cmd, OrderRequest request) {

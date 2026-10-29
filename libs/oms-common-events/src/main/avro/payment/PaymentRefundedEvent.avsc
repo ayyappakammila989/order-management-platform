@@ -1,0 +1,51 @@
+{
+  "type": "record",
+  "name": "PaymentRefundedEvent",
+  "namespace": "com.retail.oms.events.payment",
+  "doc": "Fact on oms.payment.refunded (architecture 3.5 step 7). Key = orderId.",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "paymentId",
+      "type": "string"
+    },
+    {
+      "name": "refundId",
+      "type": "string"
+    },
+    {
+      "name": "returnId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "amount",
+      "type": "com.retail.oms.events.common.Money"
+    },
+    {
+      "name": "totalRefunded",
+      "type": "com.retail.oms.events.common.Money"
+    },
+    {
+      "name": "currency",
+      "type": "string"
+    }
+  ]
+}

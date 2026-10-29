@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "PaymentMethod",
+  "namespace": "com.retail.oms.events.common",
+  "doc": "How the customer pays: a gateway token only, never card data (architecture 7.5).",
+  "fields": [
+    {
+      "name": "gateway",
+      "type": "string",
+      "doc": "STRIPE or PAYPAL"
+    },
+    {
+      "name": "methodToken",
+      "type": "string",
+      "doc": "Stripe PaymentMethod id (pm_...) or an approved PayPal order id"
+    }
+  ]
+}

@@ -27,6 +27,9 @@ request:
       zip: "10001"
     shippingTotal: 4.99
     expectedGrandTotal: 45.97
+    paymentMethod:
+      gateway: STRIPE
+      methodToken: pm_card_visa
   matchers:
     headers:
       - key: Idempotency-Key

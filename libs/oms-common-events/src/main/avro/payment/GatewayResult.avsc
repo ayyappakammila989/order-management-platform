@@ -1,0 +1,104 @@
+{
+  "type": "record",
+  "name": "GatewayResult",
+  "namespace": "com.retail.oms.events.payment",
+  "doc": "payment-gateway-adapter -> payment-service on oms.payment.gateway-result. Key = orderId.",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "requestId",
+      "type": "string"
+    },
+    {
+      "name": "idempotencyKey",
+      "type": "string"
+    },
+    {
+      "name": "operation",
+      "type": "string"
+    },
+    {
+      "name": "gateway",
+      "type": "string"
+    },
+    {
+      "name": "outcome",
+      "type": "string",
+      "doc": "SUCCEEDED, DECLINED (business no), ERROR (invalid request, will not work if repeated), PENDING_RETRY (no answer / circuit open: try again later with the same key)"
+    },
+    {
+      "name": "gatewayRef",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "gatewayTxnId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "charge / capture / refund id"
+    },
+    {
+      "name": "gatewayStatus",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "status as the gateway named it"
+    },
+    {
+      "name": "cardLast4",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "declineCode",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "message",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "httpStatus",
+      "type": [
+        "null",
+        "int"
+      ],
+      "default": null
+    },
+    {
+      "name": "replayed",
+      "type": "boolean",
+      "default": false,
+      "doc": "true = answered from Redis (pay:{idempotencyKey}) without calling the gateway"
+    }
+  ]
+}

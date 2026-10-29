@@ -1,0 +1,64 @@
+{
+  "type": "record",
+  "name": "PaymentAuthorizedEvent",
+  "namespace": "com.retail.oms.events.payment",
+  "doc": "Reply/fact on oms.payment.authorized. Key = orderId.",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string"
+    },
+    {
+      "name": "occurredAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "commandId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "the AuthorizePaymentCommand this answers; null when authorized through the REST API"
+    },
+    {
+      "name": "sagaId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "paymentId",
+      "type": "string"
+    },
+    {
+      "name": "gateway",
+      "type": "string"
+    },
+    {
+      "name": "amount",
+      "type": "com.retail.oms.events.common.Money"
+    },
+    {
+      "name": "currency",
+      "type": "string"
+    },
+    {
+      "name": "cardLast4",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

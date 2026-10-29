@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /** Test fixtures. */
 public final class TestOrders {
@@ -29,6 +30,15 @@ public final class TestOrders {
                                 new BigDecimal("0.40"), FulfillmentType.SHIP)),
                 List.of(address(AddressType.SHIP), address(AddressType.BILL)),
                 new BigDecimal("4.99"), idempotencyKey, "cart-service", NOW);
+    }
+
+    /** As after repository.save(): line ids come from the JPA sequence, which unit tests do not have. */
+    public static Order withLineIds(Order order) {
+        long id = 1;
+        for (var line : order.getLines()) {
+            ReflectionTestUtils.setField(line, "lineId", id++);
+        }
+        return order;
     }
 
     public static Address address(AddressType type) {

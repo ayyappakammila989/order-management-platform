@@ -1,0 +1,59 @@
+{
+  "dynamic": "strict",
+  "properties": {
+    "orderId":         {"type": "keyword"},
+    "orderNumber":     {"type": "keyword"},
+    "status":          {"type": "keyword"},
+    "statusUpdatedAt": {"type": "long"},
+    "channel":         {"type": "keyword"},
+    "currency":        {"type": "keyword"},
+    "shipToZip":       {"type": "keyword"},
+    "customer": {
+      "properties": {
+        "id":    {"type": "keyword"},
+        "email": {"type": "keyword"},
+        "phone": {"type": "keyword"}
+      }
+    },
+    "totals": {
+      "properties": {
+        "subtotal":      {"type": "scaled_float", "scaling_factor": 100},
+        "discountTotal": {"type": "scaled_float", "scaling_factor": 100},
+        "taxTotal":      {"type": "scaled_float", "scaling_factor": 100},
+        "shippingTotal": {"type": "scaled_float", "scaling_factor": 100},
+        "grandTotal":    {"type": "scaled_float", "scaling_factor": 100}
+      }
+    },
+    "lines": {
+      "properties": {
+        "lineId":          {"type": "long"},
+        "sku":             {"type": "keyword"},
+        "title":           {"type": "text"},
+        "quantity":        {"type": "integer"},
+        "unitPrice":       {"type": "scaled_float", "scaling_factor": 100},
+        "discount":        {"type": "scaled_float", "scaling_factor": 100},
+        "tax":             {"type": "scaled_float", "scaling_factor": 100},
+        "fulfillmentType": {"type": "keyword"}
+      }
+    },
+    "shipments": {
+      "properties": {
+        "trackingNumber": {"type": "keyword"},
+        "carrier":        {"type": "keyword"},
+        "status":         {"type": "keyword"}
+      }
+    },
+    "statusHistory": {
+      "properties": {
+        "eventId":   {"type": "keyword"},
+        "from":      {"type": "keyword"},
+        "to":        {"type": "keyword"},
+        "at":        {"type": "date"},
+        "reason":    {"type": "text"},
+        "changedBy": {"type": "keyword"}
+      }
+    },
+    "createdAt": {"type": "date"},
+    "updatedAt": {"type": "date"}
+  }
+}

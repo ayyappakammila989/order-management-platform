@@ -1,0 +1,62 @@
+server:
+  port: 8104
+
+spring:
+  application:
+    name: order-query-service
+  config:
+    import: optional:configserver:http://localhost:8888
+  elasticsearch:
+    uris: http://localhost:9200
+    connection-timeout: 2s
+    socket-timeout: 5s
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 500ms
+      connect-timeout: 1s
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: order-query-service
+      auto-offset-reset: earliest      # a new consumer group rebuilds the index from the beginning of the topics
+      enable-auto-commit: false        # the listener container commits after each record is handled
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/oms
+          jwk-set-uri: http://localhost:8180/realms/oms/protocol/openid-connect/certs
+
+oms:
+  security:
+    audience: oms-api
+  query:
+    index: orders-v1
+    alias: orders                      # the application reads and writes through the alias, so a v2 index can replace v1
+    schema-registry-url: http://localhost:8081
+    topic-pattern: 'oms\.order\.[a-z]+'     # oms.order.created, oms.order.cancelled, ... (not the DLQ, which is oms.order-query.dlq)
+    dlq-topic: oms.order-query.dlq
+    processed-event-ttl: 7d            # architecture 8: evt:{consumer}:{eventId}
+    retry:
+      initial-interval: 1s
+      multiplier: 2.0
+      max-interval: 10s
+      max-retries: 4                   # 1 first attempt + 4 retries (waits 1 s, 2 s, 4 s, 8 s), then the dead-letter topic
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  server:
+    port: 18104
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true

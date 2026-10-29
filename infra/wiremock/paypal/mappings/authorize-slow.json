@@ -1,0 +1,19 @@
+{
+  "name": "authorize: slower than the 10 s time limiter (token PAYPAL-SLOW...)",
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/v2/checkout/orders/PAYPAL-SLOW[A-Za-z0-9_-]*/authorize"
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "fixedDelayMilliseconds": 15000,
+    "jsonBody": {
+      "id": "slow",
+      "status": "COMPLETED"
+    }
+  }
+}

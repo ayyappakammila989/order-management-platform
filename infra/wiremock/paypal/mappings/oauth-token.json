@@ -1,0 +1,25 @@
+{
+  "name": "OAuth2 client credentials",
+  "request": {
+    "method": "POST",
+    "url": "/v1/oauth2/token",
+    "basicAuthCredentials": {
+      "username": "mock-paypal-client",
+      "password": "mock-paypal-secret"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "scope": "https://uri.paypal.com/services/payments",
+      "access_token": "A21-mock-access-token",
+      "token_type": "Bearer",
+      "app_id": "APP-MOCK",
+      "expires_in": 32400,
+      "nonce": "mock"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "void an authorization",
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/v2/payments/authorizations/[A-Za-z0-9_-]+/void",
+    "headers": {
+      "Authorization": {
+        "equalTo": "Bearer A21-mock-access-token"
+      },
+      "PayPal-Request-Id": {
+        "matches": ".+"
+      }
+    }
+  },
+  "response": {
+    "status": 204
+  }
+}

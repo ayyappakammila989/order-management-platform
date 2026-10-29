@@ -1,0 +1,26 @@
+{
+  "name": "authorize an approved order",
+  "priority": 5,
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/v2/checkout/orders/[A-Za-z0-9_-]+/authorize",
+    "headers": {
+      "Authorization": {
+        "equalTo": "Bearer A21-mock-access-token"
+      },
+      "PayPal-Request-Id": {
+        "matches": ".+"
+      }
+    }
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "transformers": [
+      "response-template"
+    ],
+    "body": "{\"id\": \"{{request.pathSegments.[3]}}\", \"status\": \"COMPLETED\", \"payment_source\": {\"paypal\": {\"account_status\": \"VERIFIED\"}}, \"purchase_units\": [{\"reference_id\": \"default\", \"payments\": {\"authorizations\": [{\"id\": \"AUTH-{{randomValue length=12 type='ALPHANUMERIC' uppercase=true}}\", \"status\": \"CREATED\", \"amount\": {\"currency_code\": \"{{jsonPath request.body '$.amount.currency_code'}}\", \"value\": \"{{jsonPath request.body '$.amount.value'}}\"}, \"expiration_time\": \"{{now offset='29 days'}}\"}]}}]}"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "authorize: instrument declined (token PAYPAL-DECLINE...)",
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/v2/checkout/orders/PAYPAL-DECLINE[A-Za-z0-9_-]*/authorize",
+    "headers": {
+      "Authorization": {
+        "equalTo": "Bearer A21-mock-access-token"
+      },
+      "PayPal-Request-Id": {
+        "matches": ".+"
+      }
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "name": "UNPROCESSABLE_ENTITY",
+      "message": "The requested action could not be performed, semantically incorrect, or failed business validation.",
+      "details": [
+        {
+          "issue": "INSTRUMENT_DECLINED",
+          "description": "The instrument presented was either declined by the processor or bank, or it can't be used for this payment."
+        }
+      ],
+      "debug_id": "mock-debug-1"
+    }
+  }
+}

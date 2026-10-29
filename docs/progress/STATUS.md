@@ -12,7 +12,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done and tested
 - [x] 3B.1 Contracts: Avro schemas for fraud, payment, gateway, shipment (`libs/oms-common-events`, 5 new tests); payment method
       (gateway token) from checkout -> order-service (`V2__payment_method.sql`, optional there) -> `oms.order.created`
       (optional field, backward compatible); cart checkout requires it. order-service 83 tests, cart-service 44, events 13: green
-- [ ] 3B.2 Compose profile `payments`: stripe-mock, PayPal WireMock stub; `oms_fraud` database
+- [x] 3B.2 Compose profile `payments` (also in `order-core`): stripe-mock v0.206.0 (12111), PayPal WireMock stub (8191);
+      `oms_fraud` database (init script + created on the existing volume). Every PayPal mapping called by hand (token, authorize,
+      422 decline, 503, 15 s slow, capture, void, refund PENDING, verify SUCCESS/FAILURE); stripe-mock probed (stateless, see local-access)
 - [ ] 3B.3 fraud-service (8109): rules, checks, review cases, Kafka check/cancel commands
 - [ ] 3B.4 payment-gateway-adapter (8108): Camel routes to stripe-mock / PayPal stub, Redis idempotency, circuit breaker + 10 s
       time limiter, signature-checked webhooks de-duplicated by event id

@@ -1,0 +1,19 @@
+{
+  "name": "authorize: PayPal outage (token PAYPAL-DOWN...)",
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/v2/checkout/orders/PAYPAL-DOWN[A-Za-z0-9_-]*/authorize"
+  },
+  "response": {
+    "status": 503,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "name": "SERVICE_UNAVAILABLE",
+      "message": "Service Unavailable",
+      "debug_id": "mock-debug-2"
+    }
+  }
+}

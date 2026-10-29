@@ -7,16 +7,26 @@ docker compose --profile db up -d          # PostgreSQL
 docker compose --profile cache up -d       # Redis
 docker compose --profile auth up -d        # Keycloak (+ PostgreSQL)
 docker compose --profile foundation up -d  # all of the above (step 1)
-docker compose --profile foundation down   # stop (keeps data); `down -v` deletes data
+docker compose --profile kafka up -d       # Kafka (KRaft) + Schema Registry + Kafka UI
+docker compose --profile cdc up -d         # Kafka + Schema Registry + Kafka Connect/Debezium + PostgreSQL
+docker compose --profile order-core up -d  # everything step 2 needs (foundation + kafka + cdc)
+docker compose --profile order-core down   # stop (keeps data); `down -v` deletes data
 ```
+
+Memory: every container has a `mem_limit` (sum for `order-core` = 4.5 GB). Measured with all 7 running and idle:
+about 2.2 GB in total (`docker stats --no-stream`).
 
 ## Containers
 
 | Container | Profiles | Host port | URL | Login |
 |---|---|---|---|---|
-| `oms-postgres` (PostgreSQL 17) | db, auth, foundation | **5434** | `jdbc:postgresql://localhost:5434/<db>` | see below |
-| `oms-redis` (Redis 7) | cache, foundation | 6379 | `redis://localhost:6379` | no password |
-| `oms-keycloak` (Keycloak 26.8.1) | auth, foundation | **8180** (admin UI/OIDC), 9000 (management) | http://localhost:8180 | admin / admin |
+| `oms-postgres` (PostgreSQL 17, `wal_level=logical`) | db, auth, foundation, cdc, order-core | **5434** | `jdbc:postgresql://localhost:5434/<db>` | see below |
+| `oms-redis` (Redis 7) | cache, foundation, order-core | 6379 | `redis://localhost:6379` | no password |
+| `oms-keycloak` (Keycloak 26.8.1) | auth, foundation, order-core | **8180** (admin UI/OIDC), 9000 (management) | http://localhost:8180 | admin / admin |
+| `oms-kafka` (Apache Kafka 4.3.2, KRaft, single node) | kafka, cdc, order-core | **9092** (from the host) | `localhost:9092`; containers use `kafka:29092` | none (PLAINTEXT) |
+| `oms-schema-registry` (Confluent 8.2.4) | kafka, cdc, order-core | 8081 | http://localhost:8081/subjects | none |
+| `oms-kafka-connect` (Debezium 3.6.2.Final on Kafka Connect) | cdc, order-core | 8083 | http://localhost:8083/connectors | none |
+| `oms-kafka-ui` (kafbat/kafka-ui v1.5.0) | kafka, order-core | **8090** | http://localhost:8090 | no login (local only) |
 
 Host ports 5432 and 5433 are used by other PostgreSQL instances, so Docker Postgres is on 5434.
 Host 8080 is kept free for api-gateway, hence Keycloak on 8180.
@@ -32,6 +42,9 @@ Name and password are both `oms_<service>`; the superuser is `postgres` / `postg
 
 Add another one to a running container: `infra/postgres/create-service-db.sh <service>`.
 
+Debezium login: `oms_debezium` / `oms_debezium` (REPLICATION, may connect to `oms_order` and read `outbox_event` only).
+New volumes get it automatically; on a volume created before step 2 run `infra/postgres/create-debezium-user.sh` once.
+
 ## How to connect
 
 **DBeaver** -> New connection -> PostgreSQL: host `localhost`, port `5434`, database `oms_order`
@@ -44,6 +57,27 @@ CLI: `docker exec -it oms-redis redis-cli`.
 **Browser** -> http://localhost:8180 -> Administration Console -> `admin` / `admin` (master realm).
 The application realm is `oms`: http://localhost:8180/admin/master/console/#/oms
 OIDC discovery for the master realm: http://localhost:8180/realms/master/.well-known/openid-configuration
+
+**Kafka UI** -> http://localhost:8090 -> cluster `oms-local`: Topics (messages are decoded with the Schema Registry,
+so Avro events show as JSON), Schema Registry (subjects such as `oms.order.created-value`), Kafka Connect
+(`debezium` -> connector status, restart). Consumer groups and lag are under "Consumers".
+
+**Kafka CLI** (inside the container, no install needed):
+```bash
+docker exec -it oms-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list
+docker exec -it oms-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:29092 --topic <topic> --from-beginning
+```
+Avro values print as binary there; use Kafka UI or `kafka-avro-console-consumer` in `oms-schema-registry`:
+```bash
+docker exec -it oms-schema-registry kafka-avro-console-consumer --bootstrap-server kafka:29092 \
+  --topic oms.order.created --from-beginning --property schema.registry.url=http://localhost:8081
+```
+
+**Schema Registry REST**: `curl localhost:8081/subjects`, `curl localhost:8081/subjects/<subject>/versions/latest`.
+Compatibility is `BACKWARD` (new schema must read data written with the previous one).
+
+**Kafka Connect REST**: `curl localhost:8083/connectors?expand=status`, connector config under
+`infra/debezium/`. Kafka Connect keeps its own state in the topics `_connect-configs`, `_connect-offsets`, `_connect-status`.
 
 **MongoDB Compass**: no MongoDB container yet (added with the services that need it).
 

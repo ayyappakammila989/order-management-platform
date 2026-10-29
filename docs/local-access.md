@@ -12,15 +12,16 @@ docker compose --profile cdc up -d         # Kafka + Schema Registry + Kafka Con
 docker compose --profile search up -d      # Elasticsearch only
 docker compose --profile kibana up -d      # Kibana (+ Elasticsearch); optional, not part of order-core
 docker compose --profile tax-stub up -d    # WireMock standing in for tax-service
-docker compose --profile order-core up -d  # everything step 2 needs (foundation + kafka + cdc + Elasticsearch + tax stub)
+docker compose --profile order-core up -d  # everything steps 2 and 3A need (foundation + kafka + cdc + Elasticsearch + tax stub)
 docker compose --profile order-core down   # stop (keeps data); `down -v` deletes data
 ```
 
 Memory: every container has a `mem_limit`; the sum for `order-core` is 6 GB (Docker Desktop has 8 GB). Measured after the
-step 2B smoke test with all 9 running: **about 3.7 GB** in total (`docker stats --no-stream`): Elasticsearch 1.0 GB,
-Kafka Connect 0.85 GB, Keycloak 0.55 GB, Kafka 0.39 GB, Kafka UI 0.32 GB, Schema Registry 0.29 GB, tax stub 0.17 GB,
-PostgreSQL 0.17 GB, Redis 0.01 GB. Kibana adds about 0.63 GB when started (`--profile kibana`); it is left out of
-`order-core` to keep Testcontainers runs possible.
+step 3A smoke test with all 9 running: **about 4.0 GB** in total (`docker stats --no-stream`): Elasticsearch 1.02 GB,
+Kafka Connect 0.74 GB, Keycloak 0.57 GB, Kafka 0.54 GB, Kafka UI 0.41 GB, Schema Registry 0.30 GB, PostgreSQL 0.24 GB,
+tax stub 0.17 GB, Redis 0.01 GB (step 2B: 3.7 GB). The 8 Spring Boot services run on the host, not in Docker
+(`-Xmx384m` each from `scripts/services.sh`). Kibana adds about 0.63 GB when started (`--profile kibana`); it is left out
+of `order-core` to keep Testcontainers runs possible. Stop the stack before a full `mvn verify` (Testcontainers needs the memory).
 
 ## Containers
 
@@ -47,7 +48,7 @@ Name and password are both `oms_<service>`; the superuser is `postgres` / `postg
 |---|---|
 | `oms_keycloak` | Keycloak |
 | `oms_cart`, `oms_order`, `oms_pricing` | step 2 |
-| `oms_saga` (order-orchestrator, the design's `saga_db`), `oms_inventory` (inventory-service), `oms_payment` | step 3 |
+| `oms_saga` (order-orchestrator, the design's `saga_db`), `oms_inventory` (inventory-service), `oms_payment` (part B) | step 3 |
 | `oms_orchestrator` | empty leftover from step 1 on old volumes (the saga uses `oms_saga`); new volumes no longer create it |
 
 Add another one to a running container: `infra/postgres/create-service-db.sh <service>`.
@@ -139,12 +140,20 @@ Service token: `-d "client_id=order-service&client_secret=dev-order-service-secr
 | cart-service | 8101 | 18101 | http://localhost:8101/swagger-ui.html |
 | pricing-service | 8103 | 18103 | http://localhost:8103/swagger-ui.html |
 | order-query-service | 8104 | 18104 | http://localhost:8104/swagger-ui.html |
+| inventory-service | 8105 | 18105 | http://localhost:8105/swagger-ui.html |
+| order-orchestrator | 8106 | 18106 | http://localhost:8106/swagger-ui.html |
+
+**`scripts/services.sh start|stop|status [names]`** starts the jars (from `mvn -DskipTests install`) in dependency order,
+waits for each health check, and writes logs to `.run/logs/<service>.log` (pids in `.run/`, git-ignored). It sets
+`OMS_CONFIG_REPO` to the absolute `config-repo/` path, so config-server can be started from anywhere.
 
 Start order: containers (`--profile foundation`), then config-server, discovery-service, api-gateway.
 Check everything with `scripts/smoke-step1.sh` (22 checks; the rate-limit check needs ~60 s between runs).
 Config Server serving from GitHub instead of the local folder: `SPRING_PROFILES_ACTIVE=git` (serves the `develop` branch).
 Run each with `mvn -pl services/<name> spring-boot:run` or `java -jar services/<name>/target/<name>-0.1.0-SNAPSHOT.jar`
-(from the service's own folder for config-server, which finds `config-repo/` by relative path).
+(from the service's own folder for config-server, which finds `config-repo/` by relative path, or set
+`OMS_CONFIG_REPO=/absolute/path/config-repo`). Started from elsewhere it serves no shared config at all and the services
+quietly run on their built-in defaults (this happened in step 3 before `services.sh` set the variable).
 
 
 ## Step 2A: order-service and the outbox
@@ -156,7 +165,7 @@ mvn -DskipTests install
 (cd services/discovery-service && java -jar target/discovery-service-0.1.0-SNAPSHOT.jar &)
 (cd services/order-service     && java -jar target/order-service-0.1.0-SNAPSHOT.jar &)   # Flyway creates the schema
 scripts/register-order-outbox-connector.sh     # once per Kafka Connect volume; safe to repeat
-scripts/smoke-step2a.sh                        # 32 end-to-end checks
+scripts/smoke-step2a.sh                        # 30 end-to-end checks
 ```
 
 The connector must exist before orders are written that should be published (snapshot mode `no_data`).
@@ -193,10 +202,11 @@ docker compose --profile order-core up -d       # now also Elasticsearch and the
 mvn -DskipTests install
 # start (each in its own terminal or with nohup): config-server, discovery-service, order-service,
 # then scripts/register-order-outbox-connector.sh, then pricing-service, cart-service, order-query-service
-scripts/smoke-step2b.sh                         # 48 end-to-end checks (takes about 10 s once everything is up)
+scripts/smoke-step2b.sh                         # 49 end-to-end checks (takes about 10 s once everything is up)
 ```
-The services find each other through Eureka by name (`pricing-service`, `order-service`); the first call after a start can
-fail for up to ~30 s until Eureka's response cache shows the new instance. Tokens last 5 minutes.
+The services find each other through Eureka by name (`pricing-service`, `order-service`, `inventory-service`); the first
+call after a (re)start can fail until the caller's registry copy has the new instance. Since step 3 `config-repo` sets a
+5 s registry fetch and a 5 s load-balancer cache, so that is about 10 s (it was up to ~65 s). Tokens last 5 minutes.
 If every call suddenly answers 401 "Jwt expired", check that the Docker VM clock matches the host
 (`docker exec oms-keycloak date -u` against `date -u`); after the laptop sleeps it can lag for a while.
 
@@ -248,3 +258,58 @@ leaves the DLQ unchanged. Replaying twice is harmless (idempotent consumer). Fix
 
 **Query API** (order-query-service, Swagger UI on 8104): `GET /api/v1/order-query/orders/{orderId}`, `GET /api/v1/order-query/orders?q=&status=&customerId=&page=&size=`.
 Customers only see their own orders; staff (agent, supervisor, ops, finance, service) see all.
+
+
+## Step 3A: inventory and the order saga
+
+```bash
+docker compose --profile order-core up -d
+mvn -DskipTests install
+scripts/services.sh start                       # config, discovery, order, pricing, cart, query, inventory, orchestrator
+scripts/register-order-outbox-connector.sh      # if Kafka Connect has no connector yet (e.g. after the Kafka data fix)
+scripts/smoke-step3a.sh                         # 51 end-to-end checks, about 1.5 minutes (it stops and starts inventory)
+scripts/smoke-step2b.sh && scripts/smoke-step2a.sh   # regressions; both pass with the saga running
+scripts/services.sh stop
+```
+
+**What happens on a checkout**: cart-service asks inventory for availability (pre-check), order-service saves the order
+(PENDING) and its outbox row, Debezium publishes `oms.order.created`, order-orchestrator starts the saga and sends
+`oms.inventory.reserve-cmd`, inventory-service reserves and replies `oms.inventory.reserved`, the orchestrator PATCHes the
+order to CONFIRMED, Debezium publishes `oms.order.confirmed` (order-query updates Elasticsearch; inventory stops the
+reservation's expiry). Usually a second or two from checkout to CONFIRMED.
+
+**Swagger UI**: inventory http://localhost:8105/swagger-ui.html (availability: any signed-in user; `/internal/v1/reservations`:
+service token), orchestrator http://localhost:8106/swagger-ui.html (`/internal/v1/sagas`: service token or a support role:
+`agent1`, `supervisor1`, `ops1`).
+
+**Try it by hand** (after the step 2B commands above; `OID` = the `orderId` from the checkout response):
+```bash
+A=$(curl -s -d "client_id=oms-dev-cli&grant_type=password&username=agent1&password=Passw0rd!" \
+  http://localhost:8180/realms/oms/protocol/openid-connect/token | jq -r .access_token)
+curl -s "localhost:8106/internal/v1/sagas?orderId=$OID" -H "Authorization: Bearer $A" | jq '{status, steps}'
+curl -s "localhost:8105/api/v1/inventory/SKU-5/availability?zip=10001" -H "Authorization: Bearer $T" | jq .
+scripts/send-stock-snapshot.sh STORE-NYC SKU-5=10      # MOCK SFTP/POS feed: absolute on-hand count for one location
+```
+
+**Databases** (DBeaver, `localhost:5434`):
+- `oms_inventory` / `oms_inventory`: `location` (DC-EAST 08817, DC-WEST 89501, STORE-NYC 10001, STORE-SF 94105; seed), `stock`
+  (sku + location: `on_hand`, `reserved`, `safety_stock`, `version`), `reservation` (+ `reservation_line`), `location_snapshot`,
+  `outbox_event`, `processed_message`. Seed stock (mock, Flyway V2): SKU-1..5; SKU-5 has only 2 units at STORE-NYC on purpose.
+- `oms_saga` / `oms_saga`: `saga_instance` (status, current step, `payload` JSONB), `saga_step_log` (every transition),
+  `outbox_event` (the commands), `processed_message`.
+  Useful: `select step, outcome, message from saga_step_log where saga_id = '...' order by id;`
+
+**Kafka topics** (3 partitions, key = order id; `oms.inventory.changed` key = SKU, `oms.inventory.snapshot` key = location):
+`oms.inventory.reserve-cmd`, `oms.inventory.release-cmd` (orchestrator -> inventory), `oms.inventory.reserved`,
+`oms.inventory.reserve-failed`, `oms.inventory.released` (replies and facts), `oms.inventory.changed`, `oms.inventory.snapshot`.
+Dead-letter topics: `oms.inventory.dlq`, `oms.order-orchestrator.dlq` (original bytes; replay with `scripts/replay-dlq.sh --dlq <topic>`).
+Consumer groups in Kafka UI: `inventory-service`, `order-orchestrator`.
+
+**Redis**:
+
+| Key | Owner | Meaning | TTL |
+|---|---|---|---|
+| `atp:{sku}:{zip}` | inventory-service | cached availability for the pre-check (`any` when no ZIP) | 30 s, dropped on every stock change |
+
+**Outboxes**: inventory-service and order-orchestrator do not use Debezium; a polling relay inside each service sends
+`outbox_event` rows every 200 ms (`select count(*) from outbox_event where published_at is null;` should be 0).

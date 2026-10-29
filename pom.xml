@@ -54,6 +54,7 @@
     <module>services/config-server</module>
     <module>services/discovery-service</module>
     <module>services/api-gateway</module>
+    <module>services/order-service</module>
   </modules>
 
   <dependencyManagement>
@@ -157,6 +158,19 @@
       </plugins>
     </pluginManagement>
     <plugins>
+      <!-- *Test = unit/slice tests (surefire, phase test); *IT = Testcontainers integration tests (failsafe, phase verify) -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
